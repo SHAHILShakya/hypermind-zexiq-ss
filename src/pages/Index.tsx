@@ -1,11 +1,12 @@
-import { useState, useRef, useEffect, memo } from "react";
+import { useState, useRef, useEffect, memo, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Zap, Brain, MessageCircle, Trash2, Download, Image } from "lucide-react";
+import { Sparkles, Zap, Brain, MessageCircle, Trash2, Download, Image, Keyboard, Mic } from "lucide-react";
 import { NexusOrb } from "@/components/NexusOrb";
 import { ChatMessage } from "@/components/ChatMessage";
-import { ChatInput } from "@/components/ChatInput";
+import { ChatInput, ChatInputHandle } from "@/components/ChatInput";
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { useNexusChat } from "@/hooks/useNexusChat";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -13,6 +14,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const FeatureCard = memo(({ icon: Icon, title, desc }: { icon: typeof Brain; title: string; desc: string }) => (
   <div className="glass rounded-2xl p-6 text-center hover:glow-border transition-all duration-300">
@@ -26,12 +34,62 @@ const FeatureCard = memo(({ icon: Icon, title, desc }: { icon: typeof Brain; tit
 
 FeatureCard.displayName = "FeatureCard";
 
+const ShortcutsDialog = memo(() => (
+  <Dialog>
+    <DialogTrigger asChild>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="text-muted-foreground hover:text-foreground hover:bg-muted/50"
+      >
+        <Keyboard className="w-4 h-4" />
+      </Button>
+    </DialogTrigger>
+    <DialogContent className="glass-strong border-border">
+      <DialogHeader>
+        <DialogTitle className="text-gradient font-display">Keyboard Shortcuts</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-3 mt-4">
+        {[
+          { keys: "/", desc: "Focus input" },
+          { keys: "Ctrl + K", desc: "Clear chat" },
+          { keys: "Ctrl + E", desc: "Export chat" },
+          { keys: "Escape", desc: "Unfocus input" },
+          { keys: "Enter", desc: "Send message" },
+          { keys: "Shift + Enter", desc: "New line" },
+        ].map(({ keys, desc }) => (
+          <div key={keys} className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">{desc}</span>
+            <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">{keys}</kbd>
+          </div>
+        ))}
+      </div>
+    </DialogContent>
+  </Dialog>
+));
+
+ShortcutsDialog.displayName = "ShortcutsDialog";
+
 const Index = () => {
-  const [isStarted, setIsStarted] = useState(false);
+  const [isStarted, setIsStarted] = useState(() => {
+    // Auto-start if there's chat history
+    const stored = localStorage.getItem("zexiq-chat-history");
+    return stored ? JSON.parse(stored).length > 0 : false;
+  });
   const { messages, isLoading, sendMessage, clearMessages, exportChat, messageCount } = useNexusChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<ChatInputHandle>(null);
 
-  // Auto-scroll to bottom with smooth behavior
+  // Keyboard shortcuts
+  const shortcuts = useMemo(() => [
+    { key: "k", ctrl: true, action: clearMessages, description: "Clear chat" },
+    { key: "e", ctrl: true, action: exportChat, description: "Export chat" },
+    { key: "/", action: () => chatInputRef.current?.focus(), description: "Focus input" },
+  ], [clearMessages, exportChat]);
+
+  useKeyboardShortcuts(shortcuts);
+
+  // Auto-scroll to bottom
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -41,8 +99,8 @@ const Index = () => {
   const features = [
     { icon: Brain, title: "Superior Intelligence", desc: "Multi-layered reasoning beyond any previous AI" },
     { icon: Zap, title: "Instant Response", desc: "Lightning-fast streaming with real-time output" },
-    { icon: Sparkles, title: "Creative Genius", desc: "Generate revolutionary ideas and solutions" },
     { icon: Image, title: "Vision Analysis", desc: "Upload images for intelligent visual understanding" },
+    { icon: Mic, title: "Voice Input", desc: "Speak naturally with voice recognition" },
   ];
 
   return (
@@ -88,7 +146,7 @@ const Index = () => {
                 transition={{ duration: 0.6, delay: 0.4 }}
                 className="font-display text-6xl md:text-8xl font-bold text-glow-strong mb-4"
               >
-                <span className="text-gradient">NEXUS</span>
+                <span className="text-gradient">ZEX•IQ</span>
               </motion.h1>
 
               <motion.p
@@ -107,7 +165,7 @@ const Index = () => {
                 className="text-sm md:text-base text-muted-foreground/60 mb-12 max-w-md mx-auto"
               >
                 Powered by next-gen neural architectures. Code generation. Image analysis. 
-                Limitless knowledge. Unparalleled reasoning.
+                Voice input. Limitless knowledge. Unparalleled reasoning.
               </motion.p>
 
               {/* CTA Button */}
@@ -129,7 +187,7 @@ const Index = () => {
                 >
                   <span className="relative z-10 flex items-center gap-3">
                     <MessageCircle className="w-5 h-5" />
-                    INITIALIZE NEXUS
+                    INITIALIZE ZEX•IQ
                   </span>
                 </Button>
               </motion.div>
@@ -166,7 +224,7 @@ const Index = () => {
               <div className="flex items-center gap-4">
                 <NexusOrb isActive isThinking={isLoading} size="sm" />
                 <div>
-                  <h1 className="font-display text-xl font-bold text-gradient">NEXUS</h1>
+                  <h1 className="font-display text-xl font-bold text-gradient">ZEX•IQ</h1>
                   <p className="text-xs text-muted-foreground">
                     {isLoading ? "Processing..." : `Ready • ${messageCount} messages`}
                   </p>
@@ -174,7 +232,9 @@ const Index = () => {
               </div>
               
               <TooltipProvider>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <ShortcutsDialog />
+                  
                   {messageCount > 0 && (
                     <>
                       <Tooltip>
@@ -188,7 +248,7 @@ const Index = () => {
                             <Download className="w-4 h-4" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Export Chat</TooltipContent>
+                        <TooltipContent>Export Chat (Ctrl+E)</TooltipContent>
                       </Tooltip>
                       
                       <Tooltip>
@@ -202,7 +262,7 @@ const Index = () => {
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Clear Chat</TooltipContent>
+                        <TooltipContent>Clear Chat (Ctrl+K)</TooltipContent>
                       </Tooltip>
                     </>
                   )}
@@ -224,7 +284,7 @@ const Index = () => {
                   </h2>
                   <p className="text-muted-foreground text-sm max-w-md mx-auto mb-6">
                     Ask me anything. I possess superior reasoning, vast knowledge, 
-                    code generation with syntax highlighting, and image analysis capabilities.
+                    code generation, image analysis, and voice input capabilities.
                   </p>
                   <div className="flex flex-wrap justify-center gap-2 max-w-lg mx-auto">
                     {["Write code", "Analyze images", "Explain concepts", "Generate ideas"].map((suggestion) => (
@@ -233,7 +293,7 @@ const Index = () => {
                         variant="outline"
                         size="sm"
                         className="glass text-xs"
-                        onClick={() => {}}
+                        onClick={() => sendMessage(suggestion)}
                       >
                         {suggestion}
                       </Button>
@@ -255,7 +315,7 @@ const Index = () => {
 
             {/* Input */}
             <div className="p-6 pt-0">
-              <ChatInput onSend={sendMessage} isLoading={isLoading} />
+              <ChatInput ref={chatInputRef} onSend={sendMessage} isLoading={isLoading} />
             </div>
           </motion.div>
         )}
