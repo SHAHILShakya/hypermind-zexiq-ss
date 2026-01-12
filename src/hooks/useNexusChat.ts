@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 
 type Message = {
@@ -6,13 +6,42 @@ type Message = {
   role: "user" | "assistant";
   content: string;
   image?: string;
+  timestamp: number;
 };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nexus-chat`;
+const STORAGE_KEY = "zexiq-chat-history";
+
+// Load messages from localStorage
+function loadMessages(): Message[] {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error("Failed to load chat history:", e);
+  }
+  return [];
+}
+
+// Save messages to localStorage
+function saveMessages(messages: Message[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+  } catch (e) {
+    console.error("Failed to save chat history:", e);
+  }
+}
 
 export function useNexusChat() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(loadMessages);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Persist messages to localStorage
+  useEffect(() => {
+    saveMessages(messages);
+  }, [messages]);
 
   const sendMessage = useCallback(async (content: string, image?: File) => {
     let imageBase64: string | undefined;
@@ -31,6 +60,7 @@ export function useNexusChat() {
       role: "user",
       content,
       image: imageBase64,
+      timestamp: Date.now(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -88,7 +118,7 @@ export function useNexusChat() {
       // Add empty assistant message to start streaming into
       setMessages((prev) => [
         ...prev,
-        { id: assistantId, role: "assistant", content: "" },
+        { id: assistantId, role: "assistant", content: "", timestamp: Date.now() },
       ]);
 
       while (true) {
@@ -121,7 +151,6 @@ export function useNexusChat() {
               );
             }
           } catch {
-            // Incomplete JSON, put it back
             textBuffer = line + "\n" + textBuffer;
             break;
           }
@@ -156,7 +185,6 @@ export function useNexusChat() {
     } catch (error) {
       console.error("Chat error:", error);
       toast.error(error instanceof Error ? error.message : "Failed to send message");
-      // Remove the user message on error
       setMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
     } finally {
       setIsLoading(false);
@@ -165,22 +193,24 @@ export function useNexusChat() {
 
   const clearMessages = useCallback(() => {
     setMessages([]);
+    localStorage.removeItem(STORAGE_KEY);
+    toast.success("Chat cleared");
   }, []);
 
   const exportChat = useCallback(() => {
     const exportData = messages.map((m) => ({
       role: m.role,
       content: m.content,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date(m.timestamp).toISOString(),
     }));
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `nexus-chat-${Date.now()}.json`;
+    a.download = `zexiq-chat-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Chat exported successfully");
+    toast.success("Chat exported");
   }, [messages]);
 
   const messageCount = useMemo(() => messages.length, [messages]);
