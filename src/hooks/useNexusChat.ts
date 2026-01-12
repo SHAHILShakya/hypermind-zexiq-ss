@@ -1,10 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 
 type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  image?: string;
 };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nexus-chat`;
@@ -13,20 +14,44 @@ export function useNexusChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const sendMessage = useCallback(async (content: string) => {
+  const sendMessage = useCallback(async (content: string, image?: File) => {
+    let imageBase64: string | undefined;
+
+    // Convert image to base64 if provided
+    if (image) {
+      imageBase64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(image);
+      });
+    }
+
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
       content,
+      image: imageBase64,
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
-    const allMessages = [...messages, userMessage].map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
+    // Prepare messages for API - include image in content if present
+    const apiMessages = [...messages, userMessage].map((m) => {
+      if (m.image) {
+        return {
+          role: m.role,
+          content: [
+            { type: "text", text: m.content || "Analyze this image" },
+            { type: "image_url", image_url: { url: m.image } },
+          ],
+        };
+      }
+      return {
+        role: m.role,
+        content: m.content,
+      };
+    });
 
     try {
       const resp = await fetch(CHAT_URL, {
@@ -35,7 +60,7 @@ export function useNexusChat() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: allMessages }),
+        body: JSON.stringify({ messages: apiMessages }),
       });
 
       if (!resp.ok) {
@@ -142,10 +167,30 @@ export function useNexusChat() {
     setMessages([]);
   }, []);
 
+  const exportChat = useCallback(() => {
+    const exportData = messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+      timestamp: new Date().toISOString(),
+    }));
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nexus-chat-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Chat exported successfully");
+  }, [messages]);
+
+  const messageCount = useMemo(() => messages.length, [messages]);
+
   return {
     messages,
     isLoading,
     sendMessage,
     clearMessages,
+    exportChat,
+    messageCount,
   };
 }
