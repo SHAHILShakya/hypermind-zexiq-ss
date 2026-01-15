@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { User, Sparkles, Copy, Check } from "lucide-react";
+import { User, Sparkles, Copy, Check, Volume2, VolumeX } from "lucide-react";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { Button } from "@/components/ui/button";
 import { useState, memo } from "react";
@@ -7,10 +7,20 @@ import { useState, memo } from "react";
 interface ChatMessageProps {
   role: "user" | "assistant";
   content: string;
+  messageId: string;
   isStreaming?: boolean;
+  isSpeaking?: boolean;
+  onSpeak?: (text: string, messageId: string) => void;
 }
 
-export const ChatMessage = memo(({ role, content, isStreaming }: ChatMessageProps) => {
+export const ChatMessage = memo(({ 
+  role, 
+  content, 
+  messageId,
+  isStreaming, 
+  isSpeaking,
+  onSpeak 
+}: ChatMessageProps) => {
   const isUser = role === "user";
   const [copied, setCopied] = useState(false);
 
@@ -18,6 +28,10 @@ export const ChatMessage = memo(({ role, content, isStreaming }: ChatMessageProp
     await navigator.clipboard.writeText(content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSpeak = () => {
+    onSpeak?.(content, messageId);
   };
 
   return (
@@ -69,24 +83,42 @@ export const ChatMessage = memo(({ role, content, isStreaming }: ChatMessageProp
           </div>
         )}
 
-        {/* Copy button for assistant messages */}
+        {/* Action buttons for assistant messages */}
         {!isUser && content && !isStreaming && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleCopy}
-            className="absolute -bottom-8 right-0 h-6 px-2 opacity-0 group-hover:opacity-100 transition-opacity text-xs text-muted-foreground hover:text-foreground"
-          >
-            {copied ? (
-              <>
-                <Check className="w-3 h-3 mr-1" /> Copied
-              </>
-            ) : (
-              <>
-                <Copy className="w-3 h-3 mr-1" /> Copy
-              </>
-            )}
-          </Button>
+          <div className="absolute -bottom-8 right-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSpeak}
+              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              {isSpeaking ? (
+                <>
+                  <VolumeX className="w-3 h-3 mr-1" /> Stop
+                </>
+              ) : (
+                <>
+                  <Volume2 className="w-3 h-3 mr-1" /> Speak
+                </>
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopy}
+              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3 h-3 mr-1" /> Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3 h-3 mr-1" /> Copy
+                </>
+              )}
+            </Button>
+          </div>
         )}
       </div>
     </motion.div>

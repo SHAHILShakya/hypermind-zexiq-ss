@@ -1,47 +1,21 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { toast } from "sonner";
-
-type Message = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  image?: string;
-  timestamp: number;
-};
+import type { Message } from "./useChatSessions";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nexus-chat`;
-const STORAGE_KEY = "zexiq-chat-history";
 
-// Load messages from localStorage
-function loadMessages(): Message[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch (e) {
-    console.error("Failed to load chat history:", e);
-  }
-  return [];
-}
-
-// Save messages to localStorage
-function saveMessages(messages: Message[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-  } catch (e) {
-    console.error("Failed to save chat history:", e);
-  }
-}
-
-export function useNexusChat() {
-  const [messages, setMessages] = useState<Message[]>(loadMessages);
+export function useNexusChat(
+  initialMessages: Message[],
+  onMessagesChange: (messages: Message[]) => void
+) {
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Persist messages to localStorage
-  useEffect(() => {
-    saveMessages(messages);
-  }, [messages]);
+  // Sync with external state
+  const updateMessages = useCallback((newMessages: Message[]) => {
+    setMessages(newMessages);
+    onMessagesChange(newMessages);
+  }, [onMessagesChange]);
 
   const sendMessage = useCallback(async (content: string, image?: File) => {
     let imageBase64: string | undefined;
@@ -63,11 +37,12 @@ export function useNexusChat() {
       timestamp: Date.now(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    updateMessages(updatedMessages);
     setIsLoading(true);
 
     // Prepare messages for API - include image in content if present
-    const apiMessages = [...messages, userMessage].map((m) => {
+    const apiMessages = updatedMessages.map((m) => {
       if (m.image) {
         return {
           role: m.role,
@@ -82,6 +57,8 @@ export function useNexusChat() {
         content: m.content,
       };
     });
+
+    const assistantId = crypto.randomUUID();
 
     try {
       const resp = await fetch(CHAT_URL, {
@@ -113,13 +90,10 @@ export function useNexusChat() {
       const decoder = new TextDecoder();
       let textBuffer = "";
       let assistantContent = "";
-      const assistantId = crypto.randomUUID();
 
       // Add empty assistant message to start streaming into
-      setMessages((prev) => [
-        ...prev,
-        { id: assistantId, role: "assistant", content: "", timestamp: Date.now() },
-      ]);
+      const withAssistant = [...updatedMessages, { id: assistantId, role: "assistant" as const, content: "", timestamp: Date.now() }];
+      updateMessages(withAssistant);
 
       while (true) {
         const { done, value } = await reader.read();
@@ -144,11 +118,10 @@ export function useNexusChat() {
             const deltaContent = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (deltaContent) {
               assistantContent += deltaContent;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId ? { ...m, content: assistantContent } : m
-                )
+              const updated = withAssistant.map((m) =>
+                m.id === assistantId ? { ...m, content: assistantContent } : m
               );
+              updateMessages(updated);
             }
           } catch {
             textBuffer = line + "\n" + textBuffer;
@@ -171,31 +144,30 @@ export function useNexusChat() {
             const deltaContent = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (deltaContent) {
               assistantContent += deltaContent;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantId ? { ...m, content: assistantContent } : m
-                )
-              );
             }
           } catch {
             /* ignore */
           }
         }
+        // Final update
+        setMessages(prev => prev.map(m => 
+          m.id === assistantId ? { ...m, content: assistantContent } : m
+        ));
       }
     } catch (error) {
       console.error("Chat error:", error);
       toast.error(error instanceof Error ? error.message : "Failed to send message");
-      setMessages((prev) => prev.filter((m) => m.id !== userMessage.id));
+      // Remove the user message on error
+      updateMessages(messages);
     } finally {
       setIsLoading(false);
     }
-  }, [messages]);
+  }, [messages, updateMessages]);
 
   const clearMessages = useCallback(() => {
-    setMessages([]);
-    localStorage.removeItem(STORAGE_KEY);
+    updateMessages([]);
     toast.success("Chat cleared");
-  }, []);
+  }, [updateMessages]);
 
   const exportChat = useCallback(() => {
     const exportData = messages.map((m) => ({
@@ -213,7 +185,10 @@ export function useNexusChat() {
     toast.success("Chat exported");
   }, [messages]);
 
-  const messageCount = useMemo(() => messages.length, [messages]);
+  // Reset messages when session changes
+  const setInitialMessages = useCallback((newMessages: Message[]) => {
+    setMessages(newMessages);
+  }, []);
 
   return {
     messages,
@@ -221,6 +196,7 @@ export function useNexusChat() {
     sendMessage,
     clearMessages,
     exportChat,
-    messageCount,
+    setInitialMessages,
+    messageCount: messages.length,
   };
 }
