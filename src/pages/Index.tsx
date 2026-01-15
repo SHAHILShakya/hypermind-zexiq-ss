@@ -28,12 +28,14 @@ import {
 } from "@/components/ui/dialog";
 
 const FeatureCard = memo(({ icon: Icon, title, desc }: { icon: typeof Brain; title: string; desc: string }) => (
-  <div className="glass rounded-2xl p-6 text-center hover:glow-border transition-all duration-300">
-    <Icon className="w-8 h-8 text-primary mx-auto mb-4" />
-    <h3 className="font-display text-sm tracking-wider text-foreground mb-2">
+  <div className="glass-card rounded-2xl p-6 text-center hover:scale-[1.02] transition-all duration-300">
+    <div className="w-12 h-12 rounded-xl glass-subtle mx-auto mb-4 flex items-center justify-center">
+      <Icon className="w-6 h-6 text-primary" />
+    </div>
+    <h3 className="font-display text-sm font-medium tracking-wide text-foreground mb-2">
       {title}
     </h3>
-    <p className="text-xs text-muted-foreground">{desc}</p>
+    <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
   </div>
 ));
 
@@ -177,13 +179,17 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-      <ParticleBackground />
+      {/* Mesh gradient background - iOS style */}
+      <div className="fixed inset-0 bg-mesh-gradient pointer-events-none z-0" />
+      
+      {/* Subtle grid pattern */}
+      <div className="fixed inset-0 bg-grid-pattern pointer-events-none z-0" />
       
       {/* Radial glow effect */}
       <div className="fixed inset-0 bg-radial-glow pointer-events-none z-0" />
       
-      {/* Grid pattern overlay */}
-      <div className="fixed inset-0 bg-grid-pattern pointer-events-none z-0" />
+      {/* Particles only for neon themes */}
+      {theme.style === "neon" && <ParticleBackground />}
 
       <AnimatePresence mode="wait">
         {!isStarted ? (
@@ -250,16 +256,17 @@ const Index = () => {
                   onClick={() => setIsStarted(true)}
                   className="
                     group relative px-10 py-6 rounded-2xl
-                    bg-gradient-to-r from-primary to-accent
-                    hover:from-primary/90 hover:to-accent/90
-                    font-display text-lg tracking-wider
-                    glow-border-strong animate-pulse-glow
+                    bg-primary hover:bg-primary/90
+                    font-display text-lg tracking-wide font-medium
                     transition-all duration-300
                   "
+                  style={{
+                    boxShadow: "0 8px 32px hsl(var(--primary) / 0.3)"
+                  }}
                 >
                   <span className="relative z-10 flex items-center gap-3">
                     <MessageCircle className="w-5 h-5" />
-                    INITIALIZE ZEX•IQ
+                    Start Chat
                   </span>
                 </Button>
               </motion.div>
@@ -304,7 +311,7 @@ const Index = () => {
             {/* Main Chat Area */}
             <div className="flex-1 flex flex-col min-w-0">
               {/* Header */}
-              <header className="glass border-b border-border/50 px-6 py-4 flex items-center justify-between">
+              <header className="glass-strong border-b border-border/30 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <NexusOrb isActive isThinking={isLoading} size="sm" />
                   <div>

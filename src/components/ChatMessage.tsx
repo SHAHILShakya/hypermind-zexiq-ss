@@ -44,12 +44,15 @@ export const ChatMessage = memo(({
       {/* Avatar */}
       <div
         className={`
-          flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center
+          flex-shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center
           ${isUser 
-            ? "bg-muted" 
-            : "bg-gradient-to-br from-primary to-secondary glow-border"
+            ? "glass-subtle" 
+            : "bg-gradient-to-br from-primary to-secondary"
           }
         `}
+        style={!isUser ? {
+          boxShadow: "0 4px 16px hsl(var(--primary) / 0.2)"
+        } : undefined}
       >
         {isUser ? (
           <User className="w-5 h-5 text-muted-foreground" />
@@ -63,8 +66,8 @@ export const ChatMessage = memo(({
         className={`
           relative max-w-[80%] rounded-2xl px-5 py-3
           ${isUser 
-            ? "bg-muted text-foreground" 
-            : "glass-strong glow-border"
+            ? "glass-subtle" 
+            : "glass-card"
           }
         `}
       >

@@ -141,9 +141,9 @@ export const SessionSidebar = memo(({
   return (
     <motion.div
       initial={false}
-      animate={{ width: isCollapsed ? 48 : 280 }}
-      transition={{ duration: 0.2 }}
-      className="h-full glass border-r border-border/50 flex flex-col"
+      animate={{ width: isCollapsed ? 56 : 280 }}
+      transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+      className="h-full glass-strong border-r border-border/30 flex flex-col"
     >
       {/* Header */}
       <div className="p-3 flex items-center justify-between border-b border-border/50">
@@ -175,7 +175,7 @@ export const SessionSidebar = memo(({
         <div className="p-3">
           <Button
             onClick={onCreateSession}
-            className="w-full justify-start gap-2 bg-primary/20 hover:bg-primary/30 border border-primary/30"
+            className="w-full justify-start gap-2 glass-card hover:bg-primary/10 border-none"
           >
             <Plus className="w-4 h-4" />
             New Chat
