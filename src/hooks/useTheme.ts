@@ -1,11 +1,22 @@
 import { useState, useCallback, useEffect } from "react";
 
-export type ThemeId = "cyber" | "midnight" | "aurora" | "sunset" | "emerald" | "rose";
+export type ThemeId = 
+  | "glass" 
+  | "glass-dark" 
+  | "glass-warm" 
+  | "cyber" 
+  | "midnight" 
+  | "aurora" 
+  | "sunset" 
+  | "emerald" 
+  | "rose"
+  | "monochrome";
 
 export interface Theme {
   id: ThemeId;
   name: string;
   description: string;
+  style: "glass" | "neon" | "minimal";
   colors: {
     background: string;
     foreground: string;
@@ -18,10 +29,58 @@ export interface Theme {
 }
 
 export const themes: Theme[] = [
+  // GLASS THEMES (iOS Style)
+  {
+    id: "glass",
+    name: "Glass Light",
+    description: "Clean iOS-style frosted glass",
+    style: "glass",
+    colors: {
+      background: "220 20% 97%",
+      foreground: "220 20% 10%",
+      card: "0 0% 100%",
+      primary: "220 90% 56%",
+      secondary: "280 70% 60%",
+      accent: "220 90% 50%",
+      muted: "220 15% 92%",
+    },
+  },
+  {
+    id: "glass-dark",
+    name: "Glass Dark",
+    description: "Dark mode frosted glass",
+    style: "glass",
+    colors: {
+      background: "230 25% 9%",
+      foreground: "220 20% 98%",
+      card: "230 25% 14%",
+      primary: "220 90% 60%",
+      secondary: "280 70% 65%",
+      accent: "220 90% 55%",
+      muted: "230 20% 18%",
+    },
+  },
+  {
+    id: "glass-warm",
+    name: "Glass Warm",
+    description: "Warm tinted frosted glass",
+    style: "glass",
+    colors: {
+      background: "30 30% 96%",
+      foreground: "30 20% 10%",
+      card: "30 20% 100%",
+      primary: "25 95% 55%",
+      secondary: "340 70% 55%",
+      accent: "25 95% 50%",
+      muted: "30 20% 90%",
+    },
+  },
+  // NEON THEMES
   {
     id: "cyber",
-    name: "Cyber Nexus",
-    description: "Electric cyan & deep purple",
+    name: "Cyber Neon",
+    description: "Electric cyan & purple glow",
+    style: "neon",
     colors: {
       background: "222 47% 4%",
       foreground: "190 100% 95%",
@@ -34,8 +93,9 @@ export const themes: Theme[] = [
   },
   {
     id: "midnight",
-    name: "Midnight Blue",
+    name: "Midnight Gold",
     description: "Deep blue with gold accents",
+    style: "neon",
     colors: {
       background: "230 50% 5%",
       foreground: "45 100% 95%",
@@ -48,8 +108,9 @@ export const themes: Theme[] = [
   },
   {
     id: "aurora",
-    name: "Aurora Borealis",
-    description: "Green & teal northern lights",
+    name: "Aurora",
+    description: "Northern lights green & teal",
+    style: "neon",
     colors: {
       background: "200 50% 4%",
       foreground: "150 100% 95%",
@@ -64,6 +125,7 @@ export const themes: Theme[] = [
     id: "sunset",
     name: "Neon Sunset",
     description: "Orange & magenta warmth",
+    style: "neon",
     colors: {
       background: "270 40% 5%",
       foreground: "30 100% 95%",
@@ -76,8 +138,9 @@ export const themes: Theme[] = [
   },
   {
     id: "emerald",
-    name: "Matrix Green",
+    name: "Matrix",
     description: "Classic hacker aesthetic",
+    style: "neon",
     colors: {
       background: "120 30% 3%",
       foreground: "120 100% 90%",
@@ -92,6 +155,7 @@ export const themes: Theme[] = [
     id: "rose",
     name: "Neon Rose",
     description: "Pink & violet elegance",
+    style: "neon",
     colors: {
       background: "280 40% 4%",
       foreground: "330 100% 95%",
@@ -100,6 +164,22 @@ export const themes: Theme[] = [
       secondary: "280 80% 55%",
       accent: "340 100% 55%",
       muted: "280 25% 12%",
+    },
+  },
+  // MINIMAL THEMES
+  {
+    id: "monochrome",
+    name: "Monochrome",
+    description: "Clean black & white minimal",
+    style: "minimal",
+    colors: {
+      background: "0 0% 4%",
+      foreground: "0 0% 98%",
+      card: "0 0% 8%",
+      primary: "0 0% 98%",
+      secondary: "0 0% 70%",
+      accent: "0 0% 90%",
+      muted: "0 0% 14%",
     },
   },
 ];
@@ -115,7 +195,7 @@ function loadTheme(): ThemeId {
   } catch {
     // Ignore
   }
-  return "cyber";
+  return "glass-dark"; // Default to glass dark theme
 }
 
 function applyTheme(theme: Theme) {
@@ -136,13 +216,26 @@ function applyTheme(theme: Theme) {
   root.style.setProperty("--muted-foreground", `${theme.colors.foreground.split(" ")[0]} 20% 55%`);
   root.style.setProperty("--accent", theme.colors.accent);
   root.style.setProperty("--accent-foreground", theme.colors.background);
-  root.style.setProperty("--border", `${theme.colors.muted.split(" ")[0]} 30% 15%`);
+  root.style.setProperty("--border", `${theme.colors.muted.split(" ")[0]} 30% 20%`);
   root.style.setProperty("--input", theme.colors.muted);
   root.style.setProperty("--ring", theme.colors.primary);
   root.style.setProperty("--glow-primary", theme.colors.primary);
   root.style.setProperty("--glow-secondary", theme.colors.secondary);
   root.style.setProperty("--text-gradient-start", `${theme.colors.primary.split(" ")[0]} 100% 60%`);
   root.style.setProperty("--text-gradient-end", `${theme.colors.secondary.split(" ")[0]} 80% 65%`);
+  
+  // Apply theme style class
+  root.classList.remove("theme-glass", "theme-neon", "theme-minimal");
+  root.classList.add(`theme-${theme.style}`);
+  
+  // Light/dark mode for glass themes
+  if (theme.id === "glass" || theme.id === "glass-warm") {
+    root.classList.add("light-mode");
+    root.classList.remove("dark-mode");
+  } else {
+    root.classList.add("dark-mode");
+    root.classList.remove("light-mode");
+  }
 }
 
 export function useTheme() {

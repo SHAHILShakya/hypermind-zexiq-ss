@@ -127,7 +127,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
           )}
         </AnimatePresence>
 
-        <div className="glass-strong glow-border rounded-2xl p-2 flex items-end gap-2">
+        <div className="glass-card rounded-2xl p-2 flex items-end gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -142,7 +142,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
             size="icon"
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading || disabled}
-            className="h-12 w-12 rounded-xl text-muted-foreground hover:text-foreground flex-shrink-0"
+            className="h-12 w-12 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/30 flex-shrink-0"
           >
             <Image className="w-5 h-5" />
           </Button>
@@ -188,11 +188,9 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
             disabled={(!input.trim() && !selectedImage) || isLoading || disabled}
             className="
               h-12 w-12 rounded-xl flex-shrink-0
-              bg-gradient-to-r from-primary to-accent
-              hover:from-primary/90 hover:to-accent/90
+              bg-primary hover:bg-primary/90
               disabled:opacity-50 disabled:cursor-not-allowed
               transition-all duration-200
-              glow-border
             "
           >
             {isLoading ? (
