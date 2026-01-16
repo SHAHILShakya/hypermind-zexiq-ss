@@ -9,7 +9,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { themes, type ThemeId, type Theme } from "@/hooks/useTheme";
+import { defaultThemes as themes, type ThemeId, type Theme } from "@/hooks/useTheme";
 
 interface ThemeSelectorProps {
   currentTheme: ThemeId;
