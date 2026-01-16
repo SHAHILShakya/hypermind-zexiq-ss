@@ -17,7 +17,7 @@ export function useNexusChat(
     onMessagesChange(newMessages);
   }, [onMessagesChange]);
 
-  const sendMessage = useCallback(async (content: string, image?: File) => {
+  const sendMessage = useCallback(async (content: string, image?: File, dynamicPrompt?: string) => {
     let imageBase64: string | undefined;
 
     // Convert image to base64 if provided
@@ -67,7 +67,7 @@ export function useNexusChat(
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: apiMessages }),
+        body: JSON.stringify({ messages: apiMessages, dynamicPrompt }),
       });
 
       if (!resp.ok) {
