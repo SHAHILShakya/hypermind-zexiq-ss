@@ -35,6 +35,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { type AISettings, type TruthMode, type PersonaDrift } from "@/hooks/useAISettings";
+import { Volume2 as Volume2Icon, Mic } from "lucide-react";
 
 interface AISettingsPanelProps {
   settings: AISettings;
@@ -47,6 +48,7 @@ interface AISettingsPanelProps {
   onToggleMoodSync: () => void;
   onToggleSilenceAware: () => void;
   onToggleThemeBoundPersonality: () => void;
+  onToggleAutoRead: () => void;
 }
 
 const TRUTH_MODES: { id: TruthMode; name: string; icon: typeof Heart; description: string }[] = [
@@ -100,6 +102,7 @@ export const AISettingsPanel = memo(({
   onToggleMoodSync,
   onToggleSilenceAware,
   onToggleThemeBoundPersonality,
+  onToggleAutoRead,
 }: AISettingsPanelProps) => {
   const [newRule, setNewRule] = useState("");
   const [isAddingRule, setIsAddingRule] = useState(false);
@@ -181,6 +184,15 @@ export const AISettingsPanel = memo(({
             description="AI reflects your intent with deep, clarifying questions instead of direct answers"
             enabled={settings.mirrorModeEnabled}
             onToggle={onToggleMirrorMode}
+          />
+
+          {/* Auto-Read Mode */}
+          <SettingRow
+            icon={Mic}
+            title="Auto-Read Mode"
+            description="Automatically speak AI responses aloud when enabled"
+            enabled={settings.autoReadEnabled}
+            onToggle={onToggleAutoRead}
           />
 
           {/* Silence Aware */}

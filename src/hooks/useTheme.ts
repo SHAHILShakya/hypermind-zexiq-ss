@@ -10,7 +10,8 @@ export type ThemeId =
   | "sunset" 
   | "emerald" 
   | "rose"
-  | "monochrome";
+  | "monochrome"
+  | string; // Allow custom theme IDs
 
 export interface Theme {
   id: ThemeId;
@@ -26,9 +27,15 @@ export interface Theme {
     accent: string;
     muted: string;
   };
+  personality?: {
+    tone: string;
+    style: string;
+    traits: string[];
+  };
+  isCustom?: boolean;
 }
 
-export const themes: Theme[] = [
+export const defaultThemes: Theme[] = [
   // GLASS THEMES (iOS Style)
   {
     id: "glass",
@@ -185,17 +192,38 @@ export const themes: Theme[] = [
 ];
 
 const THEME_KEY = "zexiq-theme";
+const CUSTOM_THEMES_KEY = "zexiq-custom-themes";
 
 function loadTheme(): ThemeId {
   try {
     const stored = localStorage.getItem(THEME_KEY);
-    if (stored && themes.some(t => t.id === stored)) {
+    if (stored) {
       return stored as ThemeId;
     }
   } catch {
     // Ignore
   }
   return "glass-dark"; // Default to glass dark theme
+}
+
+function loadCustomThemes(): Theme[] {
+  try {
+    const stored = localStorage.getItem(CUSTOM_THEMES_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {
+    // Ignore
+  }
+  return [];
+}
+
+function saveCustomThemes(themes: Theme[]) {
+  try {
+    localStorage.setItem(CUSTOM_THEMES_KEY, JSON.stringify(themes));
+  } catch {
+    // Ignore
+  }
 }
 
 function applyTheme(theme: Theme) {
@@ -240,8 +268,11 @@ function applyTheme(theme: Theme) {
 
 export function useTheme() {
   const [themeId, setThemeId] = useState<ThemeId>(loadTheme);
+  const [customThemes, setCustomThemes] = useState<Theme[]>(loadCustomThemes);
 
-  const currentTheme = themes.find(t => t.id === themeId) || themes[0];
+  // Combine default and custom themes
+  const themes = [...defaultThemes, ...customThemes];
+  const currentTheme = themes.find(t => t.id === themeId) || defaultThemes[0];
 
   // Apply theme on mount and change
   useEffect(() => {
@@ -253,10 +284,51 @@ export function useTheme() {
     setThemeId(id);
   }, []);
 
+  // Add custom theme
+  const addCustomTheme = useCallback((theme: Theme) => {
+    const themeWithFlag = { ...theme, isCustom: true };
+    setCustomThemes(prev => {
+      const updated = [...prev, themeWithFlag];
+      saveCustomThemes(updated);
+      return updated;
+    });
+  }, []);
+
+  // Delete custom theme
+  const deleteCustomTheme = useCallback((id: string) => {
+    setCustomThemes(prev => {
+      const updated = prev.filter(t => t.id !== id);
+      saveCustomThemes(updated);
+      // If we deleted the active theme, switch to default
+      if (id === themeId) {
+        setThemeId("glass-dark");
+      }
+      return updated;
+    });
+  }, [themeId]);
+
+  // Get personality for current theme (including custom)
+  const getThemePersonality = useCallback(() => {
+    if (currentTheme.personality) {
+      return currentTheme.personality;
+    }
+    // Fall back to default personality based on style
+    const defaults = {
+      glass: { tone: "calm, professional, and thoughtful", style: "balanced communication with depth and clarity", traits: ["composed", "insightful", "reliable"] },
+      neon: { tone: "precise, futuristic, and efficient", style: "direct, data-driven responses with technical precision", traits: ["analytical", "cutting-edge", "minimalist"] },
+      minimal: { tone: "stark, honest, and minimalist", style: "stripped-down, essential communication", traits: ["direct", "honest", "unadorned"] },
+    };
+    return defaults[currentTheme.style];
+  }, [currentTheme]);
+
   return {
     theme: currentTheme,
     themeId,
     themes,
+    customThemes,
     setTheme,
+    addCustomTheme,
+    deleteCustomTheme,
+    getThemePersonality,
   };
 }

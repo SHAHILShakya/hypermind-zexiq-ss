@@ -126,6 +126,7 @@ const Index = () => {
     toggleMoodSync,
     toggleSilenceAware,
     toggleThemeBoundPersonality,
+    toggleAutoRead,
     buildDynamicPrompt,
   } = useAISettings();
 
@@ -383,6 +384,7 @@ const Index = () => {
                       onToggleMoodSync={toggleMoodSync}
                       onToggleSilenceAware={toggleSilenceAware}
                       onToggleThemeBoundPersonality={toggleThemeBoundPersonality}
+                      onToggleAutoRead={toggleAutoRead}
                     />
                     <ThemeSelector currentTheme={themeId} onSelectTheme={setTheme} />
                     <ShortcutsDialog />

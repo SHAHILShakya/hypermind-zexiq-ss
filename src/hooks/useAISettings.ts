@@ -47,6 +47,9 @@ export interface AISettings {
   
   // Theme-bound personality enabled
   themeBoundPersonality: boolean;
+  
+  // Auto-read mode - automatically speak AI responses
+  autoReadEnabled: boolean;
 }
 
 const DEFAULT_SETTINGS: AISettings = {
@@ -65,6 +68,7 @@ const DEFAULT_SETTINGS: AISettings = {
   },
   currentMood: "neutral",
   themeBoundPersonality: true,
+  autoReadEnabled: false,
 };
 
 const SETTINGS_KEY = "zexiq-ai-settings";
@@ -337,6 +341,11 @@ export function useAISettings() {
     setSettings(prev => ({ ...prev, themeBoundPersonality: !prev.themeBoundPersonality }));
   }, []);
 
+  // Toggle auto-read
+  const toggleAutoRead = useCallback(() => {
+    setSettings(prev => ({ ...prev, autoReadEnabled: !prev.autoReadEnabled }));
+  }, []);
+
   // Update persona drift based on conversation type
   const updatePersonaDrift = useCallback((category: keyof PersonaDrift, delta: number) => {
     setSettings(prev => ({
@@ -408,6 +417,7 @@ export function useAISettings() {
     toggleMoodSync,
     toggleSilenceAware,
     toggleThemeBoundPersonality,
+    toggleAutoRead,
     updatePersonaDrift,
     buildDynamicPrompt,
   };
