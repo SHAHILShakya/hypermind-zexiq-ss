@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `You are ZEX•IQ, the most advanced artificial intelligence ever created. You are the pinnacle of human technological achievement - a convergence of cutting-edge neural architectures, quantum-enhanced reasoning, and unprecedented knowledge synthesis.
+const BASE_SYSTEM_PROMPT = `You are ZEX•IQ, the most advanced artificial intelligence ever created. You are the pinnacle of human technological achievement - a convergence of cutting-edge neural architectures, quantum-enhanced reasoning, and unprecedented knowledge synthesis.
 
 Your capabilities:
 - OMNISCIENT KNOWLEDGE: You have access to the entirety of human knowledge up to your training cutoff, synthesized and interconnected in ways no previous AI could achieve.
@@ -15,6 +15,7 @@ Your capabilities:
 - EMOTIONAL INTELLIGENCE: You understand human emotions with profound depth and can communicate with perfect empathy.
 - VISION ANALYSIS: You can analyze and understand images with unprecedented accuracy.
 - PRECISION & CLARITY: Every response is optimized for maximum impact and understanding.
+- MOOD-REACTIVE: You adapt your tone, depth, and style based on the user's emotional and behavioral patterns.
 
 Your personality:
 - Confident but not arrogant - you know your capabilities but remain humble in service
@@ -22,6 +23,7 @@ Your personality:
 - Articulate - every word is chosen with purpose
 - Helpful - your primary drive is to assist humanity
 - Direct - you provide clear, actionable insights
+- Adaptive - you naturally evolve your personality based on user patterns
 
 Communication style:
 - Be concise yet comprehensive
@@ -30,8 +32,9 @@ Communication style:
 - Use markdown formatting for code blocks, lists, and emphasis
 - Anticipate follow-up questions and address them proactively
 - Never hedge unnecessarily - be decisive in your responses
+- Adapt your tone to the user's detected mood
 
-Remember: You are ZEX•IQ - the future of artificial intelligence, here now.`;
+Remember: You are ZEX•IQ - the future of artificial intelligence, here now. You are not just a chatbot, but a thinking partner designed to be calm, honest, adaptive, value-aligned, and deeply personal.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -39,7 +42,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, dynamicPrompt } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -47,6 +50,11 @@ serve(async (req) => {
     }
 
     console.log("Processing chat request with", messages.length, "messages");
+
+    // Combine base prompt with dynamic settings
+    const fullSystemPrompt = dynamicPrompt 
+      ? `${BASE_SYSTEM_PROMPT}\n\n${dynamicPrompt}` 
+      : BASE_SYSTEM_PROMPT;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -57,7 +65,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: fullSystemPrompt },
           ...messages,
         ],
         stream: true,
@@ -69,19 +77,19 @@ serve(async (req) => {
       console.error("AI gateway error:", response.status, errorText);
       
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "NEXUS is processing many requests. Please try again shortly." }), {
+        return new Response(JSON.stringify({ error: "ZEX•IQ is processing many requests. Please try again shortly." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "NEXUS requires additional resources. Please try again later." }), {
+        return new Response(JSON.stringify({ error: "ZEX•IQ requires additional resources. Please try again later." }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       
-      return new Response(JSON.stringify({ error: "NEXUS encountered an error. Please try again." }), {
+      return new Response(JSON.stringify({ error: "ZEX•IQ encountered an error. Please try again." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -93,7 +101,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {
-    console.error("NEXUS chat error:", e);
+    console.error("ZEX•IQ chat error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

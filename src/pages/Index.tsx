@@ -1,17 +1,22 @@
 import { useState, useRef, useEffect, memo, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Zap, Brain, MessageCircle, Trash2, Download, Image, Keyboard, Mic, Volume2 } from "lucide-react";
+import { Sparkles, Zap, Brain, MessageCircle, Trash2, Download, Image, Keyboard, Mic, Volume2, Heart, Clock, Eye } from "lucide-react";
 import { NexusOrb } from "@/components/NexusOrb";
 import { ChatMessage } from "@/components/ChatMessage";
 import { ChatInput, ChatInputHandle } from "@/components/ChatInput";
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { SessionSidebar } from "@/components/SessionSidebar";
 import { ThemeSelector } from "@/components/ThemeSelector";
+import { AISettingsPanel } from "@/components/AISettingsPanel";
+import { MoodIndicator } from "@/components/MoodIndicator";
+import { SilenceMessage } from "@/components/SilenceMessage";
 import { useNexusChat } from "@/hooks/useNexusChat";
 import { useChatSessions } from "@/hooks/useChatSessions";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { useTheme } from "@/hooks/useTheme";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useAISettings, MOOD_THEME_MAP } from "@/hooks/useAISettings";
+import { useSilenceAware } from "@/hooks/useSilenceAware";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -106,6 +111,36 @@ const Index = () => {
 
   const { theme, themeId, setTheme } = useTheme();
   const { speak, stop, isSpeaking, speakingMessageId } = useTextToSpeech();
+  
+  // AI Intelligence settings
+  const {
+    settings: aiSettings,
+    updateMoodFromText,
+    recordKeystroke,
+    toggleMirrorMode,
+    setTruthMode,
+    addIdentityRule,
+    removeIdentityRule,
+    toggleIdentityRule,
+    toggleTimePerspective,
+    toggleMoodSync,
+    toggleSilenceAware,
+    toggleThemeBoundPersonality,
+    buildDynamicPrompt,
+  } = useAISettings();
+
+  // Silence awareness
+  const { silenceMessage, recordActivity, dismissSilenceMessage } = useSilenceAware(aiSettings.silenceAwareEnabled);
+
+  // Auto-sync theme with mood
+  useEffect(() => {
+    if (aiSettings.moodSyncEnabled && aiSettings.currentMood !== "neutral") {
+      const suggestedTheme = MOOD_THEME_MAP[aiSettings.currentMood];
+      if (suggestedTheme && suggestedTheme !== themeId) {
+        setTheme(suggestedTheme as any);
+      }
+    }
+  }, [aiSettings.moodSyncEnabled, aiSettings.currentMood, themeId, setTheme]);
 
   const handleMessagesChange = useCallback((messages: typeof activeSession.messages) => {
     if (activeSessionId) {
@@ -116,12 +151,24 @@ const Index = () => {
   const { 
     messages, 
     isLoading, 
-    sendMessage, 
+    sendMessage: baseSendMessage, 
     clearMessages, 
     exportChat,
     setInitialMessages,
     messageCount 
   } = useNexusChat(activeSession?.messages || [], handleMessagesChange);
+
+  // Wrap sendMessage to include dynamic prompt
+  const sendMessage = useCallback(async (content: string, image?: File) => {
+    // Update mood from text
+    updateMoodFromText(content);
+    recordActivity();
+    
+    // Build dynamic prompt based on settings
+    const dynamicPrompt = buildDynamicPrompt(themeId);
+    
+    await baseSendMessage(content, image, dynamicPrompt);
+  }, [baseSendMessage, updateMoodFromText, recordActivity, buildDynamicPrompt, themeId]);
 
   // Sync messages when session changes
   useEffect(() => {
@@ -171,10 +218,10 @@ const Index = () => {
   }, [isStarted, sessions.length, createSession]);
 
   const features = [
-    { icon: Brain, title: "Superior Intelligence", desc: "Multi-layered reasoning beyond any previous AI" },
-    { icon: Zap, title: "Instant Response", desc: "Lightning-fast streaming with real-time output" },
-    { icon: Image, title: "Vision Analysis", desc: "Upload images for intelligent visual understanding" },
-    { icon: Volume2, title: "Voice Output", desc: "Listen to responses with text-to-speech" },
+    { icon: Brain, title: "Mood-Reactive", desc: "Adapts to your emotional patterns" },
+    { icon: Eye, title: "Mirror Mode", desc: "Reflects your intent with deep questions" },
+    { icon: Clock, title: "Time Perspectives", desc: "View decisions across time horizons" },
+    { icon: Heart, title: "Truth Modes", desc: "Choose comfort, honest, or brutal honesty" },
   ];
 
   return (
@@ -320,10 +367,23 @@ const Index = () => {
                       {isLoading ? "Processing..." : `Ready • ${messageCount} messages`}
                     </p>
                   </div>
+                  <MoodIndicator mood={aiSettings.currentMood} />
                 </div>
                 
                 <TooltipProvider>
                   <div className="flex items-center gap-1">
+                    <AISettingsPanel
+                      settings={aiSettings}
+                      onToggleMirrorMode={toggleMirrorMode}
+                      onSetTruthMode={setTruthMode}
+                      onAddIdentityRule={addIdentityRule}
+                      onRemoveIdentityRule={removeIdentityRule}
+                      onToggleIdentityRule={toggleIdentityRule}
+                      onToggleTimePerspective={toggleTimePerspective}
+                      onToggleMoodSync={toggleMoodSync}
+                      onToggleSilenceAware={toggleSilenceAware}
+                      onToggleThemeBoundPersonality={toggleThemeBoundPersonality}
+                    />
                     <ThemeSelector currentTheme={themeId} onSelectTheme={setTheme} />
                     <ShortcutsDialog />
                     
@@ -412,6 +472,9 @@ const Index = () => {
               <div className="p-6 pt-0">
                 <ChatInput ref={chatInputRef} onSend={sendMessage} isLoading={isLoading} />
               </div>
+              
+              {/* Silence Message */}
+              <SilenceMessage message={silenceMessage} onDismiss={dismissSilenceMessage} />
             </div>
           </motion.div>
         )}
