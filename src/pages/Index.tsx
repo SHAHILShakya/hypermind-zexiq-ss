@@ -18,6 +18,7 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAISettings, MOOD_THEME_MAP } from "@/hooks/useAISettings";
 import { useSilenceAware } from "@/hooks/useSilenceAware";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
   TooltipContent,
@@ -181,6 +182,7 @@ const Index = () => {
   }, [activeSessionId, activeSession, setInitialMessages]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<ChatInputHandle>(null);
 
   const handleClearMessages = useCallback(() => {
@@ -204,7 +206,7 @@ const Index = () => {
 
   useKeyboardShortcuts(shortcuts);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom with smooth animation
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -226,14 +228,10 @@ const Index = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Mesh gradient background - iOS style */}
+    <div className="h-screen bg-background relative overflow-hidden flex flex-col">
+      {/* Background layers - fixed position */}
       <div className="fixed inset-0 bg-mesh-gradient pointer-events-none z-0" />
-      
-      {/* Subtle grid pattern */}
       <div className="fixed inset-0 bg-grid-pattern pointer-events-none z-0" />
-      
-      {/* Radial glow effect */}
       <div className="fixed inset-0 bg-radial-glow pointer-events-none z-0" />
       
       {/* Particles only for neon themes */}
@@ -246,7 +244,7 @@ const Index = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6"
+            className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 overflow-auto"
           >
             {/* Hero Section */}
             <motion.div
@@ -344,7 +342,7 @@ const Index = () => {
             key="chat"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="relative z-10 min-h-screen flex"
+            className="relative z-10 flex-1 flex min-h-0"
           >
             {/* Session Sidebar */}
             <SessionSidebar
@@ -356,10 +354,10 @@ const Index = () => {
               onRenameSession={renameSession}
             />
 
-            {/* Main Chat Area */}
-            <div className="flex-1 flex flex-col min-w-0">
-              {/* Header */}
-              <header className="glass-strong border-b border-border/30 px-6 py-4 flex items-center justify-between">
+            {/* Main Chat Area - Fixed layout with scrollable messages */}
+            <div className="flex-1 flex flex-col min-w-0 min-h-0">
+              {/* Header - Fixed */}
+              <header className="flex-shrink-0 glass-strong border-b border-border/30 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <NexusOrb isActive isThinking={isLoading} size="sm" />
                   <div>
@@ -424,55 +422,71 @@ const Index = () => {
                 </TooltipProvider>
               </header>
 
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-8">
-                {messages.length === 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center py-20"
-                  >
-                    <NexusOrb isActive size="md" />
-                    <h2 className="font-display text-2xl font-bold text-gradient mt-8 mb-2">
-                      How can I assist you?
-                    </h2>
-                    <p className="text-muted-foreground text-sm max-w-md mx-auto mb-6">
-                      Ask me anything. I possess superior reasoning, vast knowledge, 
-                      code generation, image analysis, and voice capabilities.
-                    </p>
-                    <div className="flex flex-wrap justify-center gap-2 max-w-lg mx-auto">
-                      {["Write code", "Analyze images", "Explain concepts", "Generate ideas"].map((suggestion) => (
-                        <Button
-                          key={suggestion}
-                          variant="outline"
-                          size="sm"
-                          className="glass text-xs"
-                          onClick={() => sendMessage(suggestion)}
-                        >
-                          {suggestion}
-                        </Button>
+              {/* Messages Area - Scrollable */}
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <div 
+                  ref={scrollAreaRef}
+                  className="h-full overflow-y-auto scroll-smooth"
+                  style={{
+                    scrollbarGutter: "stable",
+                  }}
+                >
+                  <div className="max-w-4xl mx-auto px-6 py-6">
+                    {messages.length === 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-center py-20"
+                      >
+                        <NexusOrb isActive size="md" />
+                        <h2 className="font-display text-2xl font-bold text-gradient mt-8 mb-2">
+                          How can I assist you?
+                        </h2>
+                        <p className="text-muted-foreground text-sm max-w-md mx-auto mb-6">
+                          Ask me anything. I possess superior reasoning, vast knowledge, 
+                          code generation, image analysis, and voice capabilities.
+                        </p>
+                        <div className="flex flex-wrap justify-center gap-2 max-w-lg mx-auto">
+                          {["Write code", "Analyze images", "Explain concepts", "Generate ideas"].map((suggestion) => (
+                            <Button
+                              key={suggestion}
+                              variant="outline"
+                              size="sm"
+                              className="glass text-xs"
+                              onClick={() => sendMessage(suggestion)}
+                            >
+                              {suggestion}
+                            </Button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+
+                    <div className="space-y-6">
+                      {messages.map((message, index) => (
+                        <ChatMessage
+                          key={message.id}
+                          messageId={message.id}
+                          role={message.role}
+                          content={message.content}
+                          isStreaming={isLoading && index === messages.length - 1 && message.role === "assistant"}
+                          isSpeaking={speakingMessageId === message.id}
+                          onSpeak={speak}
+                        />
                       ))}
                     </div>
-                  </motion.div>
-                )}
-
-                {messages.map((message, index) => (
-                  <ChatMessage
-                    key={message.id}
-                    messageId={message.id}
-                    role={message.role}
-                    content={message.content}
-                    isStreaming={isLoading && index === messages.length - 1 && message.role === "assistant"}
-                    isSpeaking={speakingMessageId === message.id}
-                    onSpeak={speak}
-                  />
-                ))}
-                <div ref={messagesEndRef} />
+                    
+                    {/* Scroll anchor */}
+                    <div ref={messagesEndRef} className="h-4" />
+                  </div>
+                </div>
               </div>
 
-              {/* Input */}
-              <div className="p-6 pt-0">
-                <ChatInput ref={chatInputRef} onSend={sendMessage} isLoading={isLoading} />
+              {/* Input Area - Fixed at bottom */}
+              <div className="flex-shrink-0 border-t border-border/20">
+                <div className="max-w-4xl mx-auto px-6 py-4">
+                  <ChatInput ref={chatInputRef} onSend={sendMessage} isLoading={isLoading} />
+                </div>
               </div>
               
               {/* Silence Message */}
