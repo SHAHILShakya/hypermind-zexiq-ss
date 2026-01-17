@@ -85,18 +85,18 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
       }
     };
 
-    // Auto-resize textarea
+    // Auto-resize textarea with strict limits
     useEffect(() => {
       if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
-        textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+        textareaRef.current.style.height = "44px";
+        const scrollHeight = textareaRef.current.scrollHeight;
+        // Min 44px, Max 120px - strict limits
+        textareaRef.current.style.height = `${Math.min(Math.max(scrollHeight, 44), 120)}px`;
       }
     }, [input]);
 
     return (
-      <motion.form
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+      <form
         onSubmit={handleSubmit}
         className="relative"
       >
@@ -127,7 +127,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
           )}
         </AnimatePresence>
 
-        <div className="glass-card rounded-2xl p-2 flex items-end gap-2">
+        <div className="glass-card rounded-2xl p-1.5 flex items-end gap-1.5">
           <input
             ref={fileInputRef}
             type="file"
@@ -142,9 +142,9 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
             size="icon"
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading || disabled}
-            className="h-12 w-12 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/30 flex-shrink-0"
+            className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/30 flex-shrink-0"
           >
-            <Image className="w-5 h-5" />
+            <Image className="w-4 h-4" />
           </Button>
 
           {isSupported && (
@@ -154,16 +154,16 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
               size="icon"
               onClick={toggleListening}
               disabled={isLoading || disabled}
-              className={`h-12 w-12 rounded-xl flex-shrink-0 transition-colors ${
+              className={`h-9 w-9 rounded-lg flex-shrink-0 transition-colors ${
                 isListening 
                   ? "text-red-500 bg-red-500/10 hover:bg-red-500/20" 
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
               }`}
             >
               {isListening ? (
-                <MicOff className="w-5 h-5 animate-pulse" />
+                <MicOff className="w-4 h-4 animate-pulse" />
               ) : (
-                <Mic className="w-5 h-5" />
+                <Mic className="w-4 h-4" />
               )}
             </Button>
           )}
@@ -173,38 +173,35 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isListening ? "Listening..." : "Ask ZEX•IQ anything..."}
+            placeholder={isListening ? "Listening..." : "Message ZEX•IQ..."}
             disabled={isLoading || disabled}
             rows={1}
             className="
               flex-1 bg-transparent border-none outline-none resize-none
-              text-foreground placeholder:text-muted-foreground
-              px-2 py-3 text-sm leading-relaxed
-              min-h-[48px] max-h-[200px]
+              text-foreground placeholder:text-muted-foreground/60
+              px-3 py-2.5 text-sm leading-relaxed
+              min-h-[44px] max-h-[120px]
             "
+            style={{ height: '44px' }}
           />
           <Button
             type="submit"
             disabled={(!input.trim() && !selectedImage) || isLoading || disabled}
             className="
-              h-12 w-12 rounded-xl flex-shrink-0
+              h-9 w-9 rounded-lg flex-shrink-0
               bg-primary hover:bg-primary/90
-              disabled:opacity-50 disabled:cursor-not-allowed
-              transition-all duration-200
+              disabled:opacity-30 disabled:cursor-not-allowed
+              transition-all duration-150
             "
           >
             {isLoading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Send className="w-5 h-5" />
+              <Send className="w-4 h-4" />
             )}
           </Button>
         </div>
-        
-        <p className="text-[10px] text-muted-foreground/50 text-center mt-2">
-          Press / to focus • Ctrl+K clear • Ctrl+E export
-        </p>
-      </motion.form>
+      </form>
     );
   }
 ));

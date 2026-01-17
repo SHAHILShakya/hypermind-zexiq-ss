@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, memo, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, memo, useMemo, useCallback, useLayoutEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Zap, Brain, MessageCircle, Trash2, Download, Image, Keyboard, Mic, Volume2, Heart, Clock, Eye } from "lucide-react";
+import { Brain, MessageCircle, Trash2, Download, Keyboard, Heart, Clock, Eye, Menu } from "lucide-react";
 import { NexusOrb } from "@/components/NexusOrb";
 import { ChatMessage } from "@/components/ChatMessage";
 import { ChatInput, ChatInputHandle } from "@/components/ChatInput";
@@ -18,7 +18,6 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAISettings, MOOD_THEME_MAP } from "@/hooks/useAISettings";
 import { useSilenceAware } from "@/hooks/useSilenceAware";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
   TooltipContent,
@@ -96,6 +95,9 @@ const Index = () => {
     const legacyStored = localStorage.getItem("zexiq-chat-history");
     return legacyStored ? JSON.parse(legacyStored).length > 0 : false;
   });
+  
+  // Sidebar state - closed by default
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Hooks
   const {
@@ -342,9 +344,9 @@ const Index = () => {
             key="chat"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="relative z-10 flex-1 flex min-h-0"
+            className="absolute inset-0 z-10 flex flex-col"
           >
-            {/* Session Sidebar */}
+            {/* Session Sidebar - Overlay style */}
             <SessionSidebar
               sessions={sessions}
               activeSessionId={activeSessionId}
@@ -352,146 +354,148 @@ const Index = () => {
               onSelectSession={selectSession}
               onDeleteSession={deleteSession}
               onRenameSession={renameSession}
+              isOpen={isSidebarOpen}
+              onClose={() => setIsSidebarOpen(false)}
             />
 
-            {/* Main Chat Area - Fixed layout with scrollable messages */}
-            <div className="flex-1 flex flex-col min-w-0 min-h-0">
-              {/* Header - Fixed */}
-              <header className="flex-shrink-0 glass-strong border-b border-border/30 px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <NexusOrb isActive isThinking={isLoading} size="sm" />
-                  <div>
-                    <h1 className="font-display text-xl font-bold text-gradient">ZEX•IQ</h1>
-                    <p className="text-xs text-muted-foreground">
-                      {isLoading ? "Processing..." : `Ready • ${messageCount} messages`}
-                    </p>
-                  </div>
-                  <MoodIndicator mood={aiSettings.currentMood} />
-                </div>
-                
-                <TooltipProvider>
-                  <div className="flex items-center gap-1">
-                    <AISettingsPanel
-                      settings={aiSettings}
-                      onToggleMirrorMode={toggleMirrorMode}
-                      onSetTruthMode={setTruthMode}
-                      onAddIdentityRule={addIdentityRule}
-                      onRemoveIdentityRule={removeIdentityRule}
-                      onToggleIdentityRule={toggleIdentityRule}
-                      onToggleTimePerspective={toggleTimePerspective}
-                      onToggleMoodSync={toggleMoodSync}
-                      onToggleSilenceAware={toggleSilenceAware}
-                      onToggleThemeBoundPersonality={toggleThemeBoundPersonality}
-                      onToggleAutoRead={toggleAutoRead}
-                    />
-                    <ThemeSelector currentTheme={themeId} onSelectTheme={setTheme} />
-                    <ShortcutsDialog />
-                    
-                    {messageCount > 0 && (
-                      <>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={exportChat}
-                              className="text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                            >
-                              <Download className="w-4 h-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Export Chat (Ctrl+E)</TooltipContent>
-                        </Tooltip>
-                        
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={handleClearMessages}
-                              className="text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Clear Chat (Ctrl+K)</TooltipContent>
-                        </Tooltip>
-                      </>
-                    )}
-                  </div>
-                </TooltipProvider>
-              </header>
-
-              {/* Messages Area - Scrollable */}
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <div 
-                  ref={scrollAreaRef}
-                  className="h-full overflow-y-auto scroll-smooth"
-                  style={{
-                    scrollbarGutter: "stable",
-                  }}
+            {/* Header - Fixed at top */}
+            <header className="flex-shrink-0 glass-strong border-b border-border/20 px-4 md:px-6 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => setIsSidebarOpen(true)}
                 >
-                  <div className="max-w-4xl mx-auto px-6 py-6">
-                    {messages.length === 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-center py-20"
-                      >
-                        <NexusOrb isActive size="md" />
-                        <h2 className="font-display text-2xl font-bold text-gradient mt-8 mb-2">
-                          How can I assist you?
-                        </h2>
-                        <p className="text-muted-foreground text-sm max-w-md mx-auto mb-6">
-                          Ask me anything. I possess superior reasoning, vast knowledge, 
-                          code generation, image analysis, and voice capabilities.
-                        </p>
-                        <div className="flex flex-wrap justify-center gap-2 max-w-lg mx-auto">
-                          {["Write code", "Analyze images", "Explain concepts", "Generate ideas"].map((suggestion) => (
-                            <Button
-                              key={suggestion}
-                              variant="outline"
-                              size="sm"
-                              className="glass text-xs"
-                              onClick={() => sendMessage(suggestion)}
-                            >
-                              {suggestion}
-                            </Button>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-
-                    <div className="space-y-6">
-                      {messages.map((message, index) => (
-                        <ChatMessage
-                          key={message.id}
-                          messageId={message.id}
-                          role={message.role}
-                          content={message.content}
-                          isStreaming={isLoading && index === messages.length - 1 && message.role === "assistant"}
-                          isSpeaking={speakingMessageId === message.id}
-                          onSpeak={speak}
-                        />
-                      ))}
-                    </div>
-                    
-                    {/* Scroll anchor */}
-                    <div ref={messagesEndRef} className="h-4" />
-                  </div>
+                  <Menu className="w-5 h-5" />
+                </Button>
+                <NexusOrb isActive isThinking={isLoading} size="sm" />
+                <div className="hidden sm:block">
+                  <h1 className="font-display text-lg font-bold text-gradient">ZEX•IQ</h1>
+                  <p className="text-[10px] text-muted-foreground leading-none">
+                    {isLoading ? "Thinking..." : "Ready"}
+                  </p>
                 </div>
-              </div>
-
-              {/* Input Area - Fixed at bottom */}
-              <div className="flex-shrink-0 border-t border-border/20">
-                <div className="max-w-4xl mx-auto px-6 py-4">
-                  <ChatInput ref={chatInputRef} onSend={sendMessage} isLoading={isLoading} />
-                </div>
+                <MoodIndicator mood={aiSettings.currentMood} />
               </div>
               
-              {/* Silence Message */}
-              <SilenceMessage message={silenceMessage} onDismiss={dismissSilenceMessage} />
+              <TooltipProvider>
+                <div className="flex items-center gap-0.5">
+                  <AISettingsPanel
+                    settings={aiSettings}
+                    onToggleMirrorMode={toggleMirrorMode}
+                    onSetTruthMode={setTruthMode}
+                    onAddIdentityRule={addIdentityRule}
+                    onRemoveIdentityRule={removeIdentityRule}
+                    onToggleIdentityRule={toggleIdentityRule}
+                    onToggleTimePerspective={toggleTimePerspective}
+                    onToggleMoodSync={toggleMoodSync}
+                    onToggleSilenceAware={toggleSilenceAware}
+                    onToggleThemeBoundPersonality={toggleThemeBoundPersonality}
+                    onToggleAutoRead={toggleAutoRead}
+                  />
+                  <ThemeSelector currentTheme={themeId} onSelectTheme={setTheme} />
+                  <ShortcutsDialog />
+                  
+                  {messageCount > 0 && (
+                    <>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={exportChat}
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Export Chat</TooltipContent>
+                      </Tooltip>
+                      
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleClearMessages}
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Clear Chat</TooltipContent>
+                      </Tooltip>
+                    </>
+                  )}
+                </div>
+              </TooltipProvider>
+            </header>
+
+            {/* Messages Area - Only this scrolls */}
+            <div 
+              ref={scrollAreaRef}
+              className="flex-1 overflow-y-auto overscroll-contain"
+            >
+              <div className="max-w-3xl mx-auto px-4 md:px-6 py-6">
+                {messages.length === 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="text-center py-16 md:py-24"
+                  >
+                    <NexusOrb isActive size="md" />
+                    <h2 className="font-display text-xl md:text-2xl font-bold text-gradient mt-6 mb-2">
+                      How can I help you today?
+                    </h2>
+                    <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-8">
+                      Ask me anything. I'm here to help with reasoning, code, analysis, and more.
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto">
+                      {["Write code", "Analyze images", "Explain concepts", "Generate ideas"].map((suggestion) => (
+                        <Button
+                          key={suggestion}
+                          variant="outline"
+                          size="sm"
+                          className="glass text-xs h-8"
+                          onClick={() => sendMessage(suggestion)}
+                        >
+                          {suggestion}
+                        </Button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+
+                <div className="space-y-4">
+                  {messages.map((message, index) => (
+                    <ChatMessage
+                      key={message.id}
+                      messageId={message.id}
+                      role={message.role}
+                      content={message.content}
+                      isStreaming={isLoading && index === messages.length - 1 && message.role === "assistant"}
+                      isSpeaking={speakingMessageId === message.id}
+                      onSpeak={speak}
+                    />
+                  ))}
+                </div>
+                
+                {/* Scroll anchor */}
+                <div ref={messagesEndRef} className="h-px" />
+              </div>
             </div>
+
+            {/* Input Area - Fixed at bottom */}
+            <div className="flex-shrink-0 border-t border-border/10 bg-background/50 backdrop-blur-xl">
+              <div className="max-w-3xl mx-auto px-4 md:px-6 py-3">
+                <ChatInput ref={chatInputRef} onSend={sendMessage} isLoading={isLoading} />
+              </div>
+            </div>
+            
+            {/* Silence Message */}
+            <SilenceMessage message={silenceMessage} onDismiss={dismissSilenceMessage} />
           </motion.div>
         )}
       </AnimatePresence>
