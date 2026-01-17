@@ -4,6 +4,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent body scrolling - only message container scrolls */
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 /* ZEX•IQ Design System - iOS Glassmorphism + Multi-theme Support */
 
 @layer base {
@@ -322,8 +329,15 @@
 }
 
 /* Smooth scrolling behavior */
-html {
+/* Smooth scrolling in message container only */
+* {
   scroll-behavior: smooth;
+}
+
+/* Messages container specific scrolling */
+.overscroll-contain {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Hide scrollbar when not scrolling (optional - uncomment if desired) */

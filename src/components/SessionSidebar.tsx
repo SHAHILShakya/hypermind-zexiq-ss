@@ -4,11 +4,9 @@ import {
   Plus, 
   MessageSquare, 
   Trash2, 
-  ChevronLeft, 
-  ChevronRight,
+  X,
   Pencil,
-  Check,
-  X
+  Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +20,8 @@ interface SessionSidebarProps {
   onSelectSession: (id: string) => void;
   onDeleteSession: (id: string) => void;
   onRenameSession: (id: string, name: string) => void;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 const SessionItem = memo(({ 
@@ -58,10 +58,10 @@ const SessionItem = memo(({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
       className={`
-        group flex items-center gap-2 p-3 rounded-xl cursor-pointer transition-all
+        group flex items-center gap-2 p-3 rounded-xl cursor-pointer transition-all mb-1
         ${isActive 
-          ? "bg-primary/20 border border-primary/30" 
-          : "hover:bg-muted/50 border border-transparent"
+          ? "bg-primary/15 border border-primary/20" 
+          : "hover:bg-muted/40 border border-transparent"
         }
       `}
       onClick={() => !isEditing && onSelect()}
@@ -90,7 +90,7 @@ const SessionItem = memo(({
       ) : (
         <>
           <div className="flex-1 min-w-0">
-            <p className="text-sm truncate">{session.name}</p>
+            <p className="text-sm truncate font-medium">{session.name}</p>
             <p className="text-xs text-muted-foreground">
               {session.messages.length} messages
             </p>
@@ -135,91 +135,92 @@ export const SessionSidebar = memo(({
   onSelectSession,
   onDeleteSession,
   onRenameSession,
+  isOpen,
+  onClose,
 }: SessionSidebarProps) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
   return (
-    <motion.div
-      initial={false}
-      animate={{ width: isCollapsed ? 56 : 280 }}
-      transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-      className="h-full glass-strong border-r border-border/30 flex flex-col"
-    >
-      {/* Header */}
-      <div className="p-3 flex items-center justify-between border-b border-border/50">
-        {!isCollapsed && (
-          <motion.h2
+    <>
+      {/* Backdrop overlay */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="font-display text-sm text-gradient tracking-wider"
-          >
-            SESSIONS
-          </motion.h2>
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
+            onClick={onClose}
+          />
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 ml-auto"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-        >
-          {isCollapsed ? (
-            <ChevronRight className="w-4 h-4" />
-          ) : (
-            <ChevronLeft className="w-4 h-4" />
-          )}
-        </Button>
-      </div>
+      </AnimatePresence>
 
-      {/* New Chat Button */}
-      {!isCollapsed && (
-        <div className="p-3">
-          <Button
-            onClick={onCreateSession}
-            className="w-full justify-start gap-2 glass-card hover:bg-primary/10 border-none"
+      {/* Sidebar Panel */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ x: -280, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -280, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            className="fixed left-0 top-0 bottom-0 w-[280px] glass-strong border-r border-border/30 flex flex-col z-50"
           >
-            <Plus className="w-4 h-4" />
-            New Chat
-          </Button>
-        </div>
-      )}
+            {/* Header */}
+            <div className="p-4 flex items-center justify-between border-b border-border/30">
+              <h2 className="font-display text-sm text-gradient tracking-wider font-medium">
+                SESSIONS
+              </h2>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={onClose}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
 
-      {isCollapsed && (
-        <div className="p-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onCreateSession}
-            className="w-full h-10"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-        </div>
-      )}
+            {/* New Chat Button */}
+            <div className="p-3">
+              <Button
+                onClick={() => {
+                  onCreateSession();
+                  onClose();
+                }}
+                className="w-full justify-start gap-2 glass-card hover:bg-primary/10 border-none"
+              >
+                <Plus className="w-4 h-4" />
+                New Chat
+              </Button>
+            </div>
 
-      {/* Sessions List */}
-      {!isCollapsed && (
-        <ScrollArea className="flex-1 px-3">
-          <AnimatePresence mode="popLayout">
-            {sessions.map(session => (
-              <SessionItem
-                key={session.id}
-                session={session}
-                isActive={session.id === activeSessionId}
-                onSelect={() => onSelectSession(session.id)}
-                onDelete={() => onDeleteSession(session.id)}
-                onRename={(name) => onRenameSession(session.id, name)}
-              />
-            ))}
-          </AnimatePresence>
-          
-          {sessions.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-8">
-              No sessions yet
-            </p>
-          )}
-        </ScrollArea>
-      )}
-    </motion.div>
+            {/* Sessions List */}
+            <ScrollArea className="flex-1 px-3">
+              <AnimatePresence mode="popLayout">
+                {sessions.map(session => (
+                  <SessionItem
+                    key={session.id}
+                    session={session}
+                    isActive={session.id === activeSessionId}
+                    onSelect={() => {
+                      onSelectSession(session.id);
+                      onClose();
+                    }}
+                    onDelete={() => onDeleteSession(session.id)}
+                    onRename={(name) => onRenameSession(session.id, name)}
+                  />
+                ))}
+              </AnimatePresence>
+              
+              {sessions.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-8">
+                  No sessions yet
+                </p>
+              )}
+            </ScrollArea>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 });
 
