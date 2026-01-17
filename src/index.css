@@ -287,10 +287,10 @@
   }
 }
 
-/* ==================== SCROLLBAR ==================== */
+/* ==================== SCROLLBAR (ChatGPT-style thin scrollbar) ==================== */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -298,22 +298,44 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
-  border-radius: 4px;
+  background: hsl(var(--muted-foreground) / 0.2);
+  border-radius: 3px;
+  transition: background 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
+  background: hsl(var(--muted-foreground) / 0.4);
+}
+
+/* Scrollbar appears only on hover (like ChatGPT) */
+.scroll-smooth {
+  scrollbar-gutter: stable;
 }
 
 /* Glass theme scrollbar */
 .theme-glass ::-webkit-scrollbar-thumb {
-  background: hsl(var(--foreground) / 0.15);
+  background: hsl(var(--foreground) / 0.1);
 }
 
 .theme-glass ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--foreground) / 0.25);
+  background: hsl(var(--foreground) / 0.2);
 }
+
+/* Smooth scrolling behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Hide scrollbar when not scrolling (optional - uncomment if desired) */
+/*
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+*/
 
 /* ==================== SELECTION ==================== */
 ::selection {
