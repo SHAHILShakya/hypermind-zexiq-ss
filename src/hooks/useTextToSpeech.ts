@@ -3,12 +3,23 @@ import { toast } from "sonner";
 
 const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`;
 
+export type VoiceId = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
+
 export function useTextToSpeech() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  const [selectedVoice, setSelectedVoice] = useState<VoiceId>(() => {
+    const stored = localStorage.getItem("zexiq-tts-voice");
+    return (stored as VoiceId) || "nova";
+  });
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const speak = useCallback(async (text: string, messageId: string) => {
+  const setVoice = useCallback((voice: VoiceId) => {
+    setSelectedVoice(voice);
+    localStorage.setItem("zexiq-tts-voice", voice);
+  }, []);
+
+  const speak = useCallback(async (text: string, messageId: string, voiceOverride?: VoiceId) => {
     // Stop any current playback
     if (audioRef.current) {
       audioRef.current.pause();
@@ -25,6 +36,8 @@ export function useTextToSpeech() {
     setIsSpeaking(true);
     setSpeakingMessageId(messageId);
 
+    const voice = voiceOverride || selectedVoice;
+
     try {
       const response = await fetch(TTS_URL, {
         method: "POST",
@@ -33,7 +46,7 @@ export function useTextToSpeech() {
           "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ text, voice: "nova" }),
+        body: JSON.stringify({ text, voice }),
       });
 
       if (!response.ok) {
@@ -67,7 +80,7 @@ export function useTextToSpeech() {
       setSpeakingMessageId(null);
       toast.error("Failed to generate speech");
     }
-  }, [speakingMessageId]);
+  }, [speakingMessageId, selectedVoice]);
 
   const stop = useCallback(() => {
     if (audioRef.current) {
@@ -83,5 +96,7 @@ export function useTextToSpeech() {
     stop,
     isSpeaking,
     speakingMessageId,
+    selectedVoice,
+    setVoice,
   };
 }

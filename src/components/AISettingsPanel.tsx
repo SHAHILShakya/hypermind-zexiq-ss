@@ -15,11 +15,9 @@ import {
   Plus,
   X,
   Check,
-  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,
@@ -35,7 +33,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { type AISettings, type TruthMode, type PersonaDrift } from "@/hooks/useAISettings";
-import { Volume2 as Volume2Icon, Mic } from "lucide-react";
+import { VoiceSelector, type VoiceId } from "./VoiceSelector";
+import { Mic } from "lucide-react";
 
 interface AISettingsPanelProps {
   settings: AISettings;
@@ -49,6 +48,8 @@ interface AISettingsPanelProps {
   onToggleSilenceAware: () => void;
   onToggleThemeBoundPersonality: () => void;
   onToggleAutoRead: () => void;
+  selectedVoice: VoiceId;
+  onVoiceChange: (voice: VoiceId) => void;
 }
 
 const TRUTH_MODES: { id: TruthMode; name: string; icon: typeof Heart; description: string }[] = [
@@ -103,6 +104,8 @@ export const AISettingsPanel = memo(({
   onToggleSilenceAware,
   onToggleThemeBoundPersonality,
   onToggleAutoRead,
+  selectedVoice,
+  onVoiceChange,
 }: AISettingsPanelProps) => {
   const [newRule, setNewRule] = useState("");
   const [isAddingRule, setIsAddingRule] = useState(false);
@@ -194,6 +197,11 @@ export const AISettingsPanel = memo(({
             enabled={settings.autoReadEnabled}
             onToggle={onToggleAutoRead}
           />
+
+          {/* Voice Selection */}
+          <div className="p-4 rounded-xl glass-subtle">
+            <VoiceSelector value={selectedVoice} onChange={onVoiceChange} />
+          </div>
 
           {/* Silence Aware */}
           <SettingRow

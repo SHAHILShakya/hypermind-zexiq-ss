@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, memo, useMemo, useCallback, useLayoutEffect } from "react";
+import { useState, useRef, useEffect, memo, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Brain, MessageCircle, Trash2, Download, Keyboard, Heart, Clock, Eye, Menu } from "lucide-react";
 import { NexusOrb } from "@/components/NexusOrb";
@@ -10,6 +10,7 @@ import { ThemeSelector } from "@/components/ThemeSelector";
 import { AISettingsPanel } from "@/components/AISettingsPanel";
 import { MoodIndicator } from "@/components/MoodIndicator";
 import { SilenceMessage } from "@/components/SilenceMessage";
+import { TypingIndicator } from "@/components/TypingIndicator";
 import { useNexusChat } from "@/hooks/useNexusChat";
 import { useChatSessions } from "@/hooks/useChatSessions";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
@@ -113,7 +114,7 @@ const Index = () => {
   } = useChatSessions();
 
   const { theme, themeId, setTheme } = useTheme();
-  const { speak, stop, isSpeaking, speakingMessageId } = useTextToSpeech();
+  const { speak, stop, isSpeaking, speakingMessageId, selectedVoice, setVoice } = useTextToSpeech();
   
   // AI Intelligence settings
   const {
@@ -156,6 +157,7 @@ const Index = () => {
     messages, 
     isLoading, 
     sendMessage: baseSendMessage, 
+    regenerateResponse,
     clearMessages, 
     exportChat,
     setInitialMessages,
@@ -393,6 +395,8 @@ const Index = () => {
                     onToggleSilenceAware={toggleSilenceAware}
                     onToggleThemeBoundPersonality={toggleThemeBoundPersonality}
                     onToggleAutoRead={toggleAutoRead}
+                    selectedVoice={selectedVoice}
+                    onVoiceChange={setVoice}
                   />
                   <ThemeSelector currentTheme={themeId} onSelectTheme={setTheme} />
                   <ShortcutsDialog />
@@ -469,17 +473,30 @@ const Index = () => {
                 )}
 
                 <div className="space-y-4">
-                  {messages.map((message, index) => (
-                    <ChatMessage
-                      key={message.id}
-                      messageId={message.id}
-                      role={message.role}
-                      content={message.content}
-                      isStreaming={isLoading && index === messages.length - 1 && message.role === "assistant"}
-                      isSpeaking={speakingMessageId === message.id}
-                      onSpeak={speak}
-                    />
-                  ))}
+                  {messages.map((message, index) => {
+                    const isLastAssistant = message.role === "assistant" && 
+                      index === messages.length - 1;
+                    return (
+                      <ChatMessage
+                        key={message.id}
+                        messageId={message.id}
+                        role={message.role}
+                        content={message.content}
+                        isStreaming={isLoading && index === messages.length - 1 && message.role === "assistant"}
+                        isSpeaking={speakingMessageId === message.id}
+                        isLastAssistant={isLastAssistant && !isLoading}
+                        onSpeak={speak}
+                        onRegenerate={() => regenerateResponse(buildDynamicPrompt(themeId))}
+                      />
+                    );
+                  })}
+                  
+                  {/* Typing indicator */}
+                  <AnimatePresence>
+                    {isLoading && messages.length > 0 && messages[messages.length - 1].role === "user" && (
+                      <TypingIndicator />
+                    )}
+                  </AnimatePresence>
                 </div>
                 
                 {/* Scroll anchor */}
