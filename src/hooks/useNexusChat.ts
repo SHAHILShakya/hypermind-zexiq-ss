@@ -314,11 +314,121 @@ export function useNexusChat(
     setMessages(newMessages);
   }, []);
 
+  // Edit and resend a message
+  const editAndResend = useCallback(async (messageId: string, newContent: string, dynamicPrompt?: string) => {
+    const messageIndex = messages.findIndex(m => m.id === messageId);
+    if (messageIndex === -1) return;
+    
+    // Remove this message and all messages after it
+    const messagesBeforeEdit = messages.slice(0, messageIndex);
+    updateMessages(messagesBeforeEdit);
+    setMessages(messagesBeforeEdit);
+    
+    // Create the edited user message
+    const editedMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: newContent,
+      timestamp: Date.now(),
+    };
+    
+    const withEditedMessage = [...messagesBeforeEdit, editedMessage];
+    updateMessages(withEditedMessage);
+    setIsLoading(true);
+    
+    const apiMessages = withEditedMessage.map((m) => {
+      if (m.image) {
+        return {
+          role: m.role,
+          content: [
+            { type: "text", text: m.content || "Analyze this image" },
+            { type: "image_url", image_url: { url: m.image } },
+          ],
+        };
+      }
+      return {
+        role: m.role,
+        content: m.content,
+      };
+    });
+
+    const assistantId = crypto.randomUUID();
+
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ messages: apiMessages, dynamicPrompt }),
+      });
+
+      if (!resp.ok) {
+        throw new Error("Failed to get response");
+      }
+
+      if (!resp.body) {
+        throw new Error("No response body");
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+      let assistantContent = "";
+
+      const withAssistant = [...withEditedMessage, { id: assistantId, role: "assistant" as const, content: "", timestamp: Date.now() }];
+      updateMessages(withAssistant);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const deltaContent = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (deltaContent) {
+              assistantContent += deltaContent;
+              const updated = withAssistant.map((m) =>
+                m.id === assistantId ? { ...m, content: assistantContent } : m
+              );
+              updateMessages(updated);
+            }
+          } catch {
+            break;
+          }
+        }
+      }
+
+      toast.success("Message edited and resent");
+    } catch (error) {
+      console.error("Edit error:", error);
+      toast.error("Failed to resend edited message");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [messages, updateMessages]);
+
   return {
     messages,
     isLoading,
     sendMessage,
     regenerateResponse,
+    editAndResend,
     clearMessages,
     exportChat,
     setInitialMessages,

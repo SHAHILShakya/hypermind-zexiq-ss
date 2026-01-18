@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, memo, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, MessageCircle, Trash2, Download, Keyboard, Heart, Clock, Eye, Menu } from "lucide-react";
+import { Brain, MessageCircle, Trash2, Download, Keyboard, Heart, Clock, Eye, Menu, Search } from "lucide-react";
 import { NexusOrb } from "@/components/NexusOrb";
 import { ChatMessage } from "@/components/ChatMessage";
 import { ChatInput, ChatInputHandle } from "@/components/ChatInput";
@@ -11,12 +11,14 @@ import { AISettingsPanel } from "@/components/AISettingsPanel";
 import { MoodIndicator } from "@/components/MoodIndicator";
 import { SilenceMessage } from "@/components/SilenceMessage";
 import { TypingIndicator } from "@/components/TypingIndicator";
+import { SuggestedPrompts } from "@/components/SuggestedPrompts";
+import { ConversationSearch } from "@/components/ConversationSearch";
 import { useNexusChat } from "@/hooks/useNexusChat";
 import { useChatSessions } from "@/hooks/useChatSessions";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { useTheme } from "@/hooks/useTheme";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { useAISettings, MOOD_THEME_MAP } from "@/hooks/useAISettings";
+import { useAISettings } from "@/hooks/useAISettings";
 import { useSilenceAware } from "@/hooks/useSilenceAware";
 import { Button } from "@/components/ui/button";
 import {
@@ -99,6 +101,10 @@ const Index = () => {
   
   // Sidebar state - closed by default
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Search state
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   // Hooks
   const {
@@ -137,15 +143,8 @@ const Index = () => {
   // Silence awareness
   const { silenceMessage, recordActivity, dismissSilenceMessage } = useSilenceAware(aiSettings.silenceAwareEnabled);
 
-  // Auto-sync theme with mood
-  useEffect(() => {
-    if (aiSettings.moodSyncEnabled && aiSettings.currentMood !== "neutral") {
-      const suggestedTheme = MOOD_THEME_MAP[aiSettings.currentMood];
-      if (suggestedTheme && suggestedTheme !== themeId) {
-        setTheme(suggestedTheme as any);
-      }
-    }
-  }, [aiSettings.moodSyncEnabled, aiSettings.currentMood, themeId, setTheme]);
+  // Note: Mood sync to theme is disabled - moods are displayed but don't auto-change theme
+  // Themes only change when user explicitly selects them
 
   const handleMessagesChange = useCallback((messages: typeof activeSession.messages) => {
     if (activeSessionId) {
@@ -158,6 +157,7 @@ const Index = () => {
     isLoading, 
     sendMessage: baseSendMessage, 
     regenerateResponse,
+    editAndResend,
     clearMessages, 
     exportChat,
     setInitialMessages,
@@ -205,10 +205,28 @@ const Index = () => {
     { key: "k", ctrl: true, action: handleClearMessages, description: "Clear chat" },
     { key: "e", ctrl: true, action: exportChat, description: "Export chat" },
     { key: "n", ctrl: true, action: handleNewSession, description: "New session" },
+    { key: "f", ctrl: true, action: () => setIsSearchOpen(true), description: "Search" },
     { key: "/", action: () => chatInputRef.current?.focus(), description: "Focus input" },
   ], [handleClearMessages, exportChat, handleNewSession]);
 
   useKeyboardShortcuts(shortcuts);
+
+  // Handle edit and resend
+  const handleEditMessage = useCallback((messageId: string, newContent: string) => {
+    const dynamicPrompt = buildDynamicPrompt(themeId);
+    editAndResend(messageId, newContent, dynamicPrompt);
+  }, [editAndResend, buildDynamicPrompt, themeId]);
+
+  // Handle scroll to message (for search)
+  const handleScrollToMessage = useCallback((messageId: string) => {
+    setHighlightedMessageId(messageId);
+    const element = document.getElementById(`message-${messageId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    // Remove highlight after 2 seconds
+    setTimeout(() => setHighlightedMessageId(null), 2000);
+  }, []);
 
   // Auto-scroll to bottom with smooth animation
   useEffect(() => {
@@ -408,6 +426,20 @@ const Index = () => {
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={() => setIsSearchOpen(true)}
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          >
+                            <Search className="w-4 h-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Search (Ctrl+F)</TooltipContent>
+                      </Tooltip>
+                      
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={exportChat}
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                           >
@@ -435,6 +467,14 @@ const Index = () => {
                 </div>
               </TooltipProvider>
             </header>
+
+            {/* Search Bar */}
+            <ConversationSearch
+              messages={messages}
+              onScrollToMessage={handleScrollToMessage}
+              isOpen={isSearchOpen}
+              onClose={() => setIsSearchOpen(false)}
+            />
 
             {/* Messages Area - Only this scrolls */}
             <div 
@@ -485,8 +525,10 @@ const Index = () => {
                         isStreaming={isLoading && index === messages.length - 1 && message.role === "assistant"}
                         isSpeaking={speakingMessageId === message.id}
                         isLastAssistant={isLastAssistant && !isLoading}
+                        isHighlighted={highlightedMessageId === message.id}
                         onSpeak={speak}
                         onRegenerate={() => regenerateResponse(buildDynamicPrompt(themeId))}
+                        onEdit={handleEditMessage}
                       />
                     );
                   })}
@@ -497,6 +539,14 @@ const Index = () => {
                       <TypingIndicator />
                     )}
                   </AnimatePresence>
+                  
+                  {/* Suggested prompts after AI response */}
+                  {!isLoading && messages.length > 0 && messages[messages.length - 1].role === "assistant" && (
+                    <SuggestedPrompts 
+                      onSelect={sendMessage}
+                      lastMessage={messages[messages.length - 1].content}
+                    />
+                  )}
                 </div>
                 
                 {/* Scroll anchor */}
