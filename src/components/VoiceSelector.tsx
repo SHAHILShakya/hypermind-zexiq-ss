@@ -8,7 +8,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export type VoiceId = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
+export type VoiceId =
+  | "alloy"
+  | "echo"
+  | "fable"
+  | "onyx"
+  | "nova"
+  | "shimmer"
+  | "coral"
+  | "sage"
+  | "ash"
+  | "ballad"
+  | "verse"
+  | "juniper";
 
 interface VoiceSelectorProps {
   value: VoiceId;
@@ -22,6 +34,12 @@ const VOICES: { id: VoiceId; name: string; description: string }[] = [
   { id: "onyx", name: "Onyx", description: "Deep & authoritative" },
   { id: "nova", name: "Nova", description: "Friendly & upbeat" },
   { id: "shimmer", name: "Shimmer", description: "Clear & melodic" },
+  { id: "coral", name: "Coral", description: "Soft & gentle" },
+  { id: "sage", name: "Sage", description: "Wise & calm" },
+  { id: "ash", name: "Ash", description: "Smooth & professional" },
+  { id: "ballad", name: "Ballad", description: "Expressive & lyrical" },
+  { id: "verse", name: "Verse", description: "Poetic & refined" },
+  { id: "juniper", name: "Juniper", description: "Fresh & energetic" },
 ];
 
 export const VoiceSelector = memo(({ value, onChange }: VoiceSelectorProps) => {
@@ -35,10 +53,10 @@ export const VoiceSelector = memo(({ value, onChange }: VoiceSelectorProps) => {
         <SelectTrigger className="glass-subtle h-9">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent className="glass-strong">
+        <SelectContent className="glass-strong max-h-64">
           {VOICES.map((voice) => (
-            <SelectItem 
-              key={voice.id} 
+            <SelectItem
+              key={voice.id}
               value={voice.id}
               className="cursor-pointer"
             >

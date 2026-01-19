@@ -4,11 +4,15 @@ import { Send, Loader2, Image, X, Mic, MicOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { FileUploadButton, type UploadedFile } from "./FileUploadButton";
+import { VoiceSelectorCompact, type VoiceId } from "./VoiceSelectorCompact";
 
 interface ChatInputProps {
-  onSend: (message: string, image?: File) => void;
+  onSend: (message: string, image?: File, files?: UploadedFile[]) => void;
   isLoading: boolean;
   disabled?: boolean;
+  selectedVoice: VoiceId;
+  onVoiceChange: (voice: VoiceId) => void;
 }
 
 export interface ChatInputHandle {
@@ -16,10 +20,11 @@ export interface ChatInputHandle {
 }
 
 export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
-  ({ onSend, isLoading, disabled }, ref) => {
+  ({ onSend, isLoading, disabled, selectedVoice, onVoiceChange }, ref) => {
     const [input, setInput] = useState("");
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -33,7 +38,6 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
       focus: () => textareaRef.current?.focus(),
     }));
 
-    // Update input when voice transcript changes
     useEffect(() => {
       if (transcript && isListening) {
         // Show interim results
@@ -42,11 +46,12 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      if ((input.trim() || selectedImage) && !isLoading && !disabled) {
-        onSend(input.trim(), selectedImage || undefined);
+      if ((input.trim() || selectedImage || uploadedFiles.length > 0) && !isLoading && !disabled) {
+        onSend(input.trim(), selectedImage || undefined, uploadedFiles.length > 0 ? uploadedFiles : undefined);
         setInput("");
         setSelectedImage(null);
         setImagePreview(null);
+        setUploadedFiles([]);
       }
     };
 
@@ -85,49 +90,59 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
       }
     };
 
+    const handleFilesSelected = (files: UploadedFile[]) => {
+      setUploadedFiles((prev) => [...prev, ...files]);
+    };
+
+    const handleRemoveFile = (id: string) => {
+      setUploadedFiles((prev) => prev.filter((f) => f.id !== id));
+    };
+
     // Auto-resize textarea with strict limits
     useEffect(() => {
       if (textareaRef.current) {
         textareaRef.current.style.height = "44px";
         const scrollHeight = textareaRef.current.scrollHeight;
-        // Min 44px, Max 120px - strict limits
         textareaRef.current.style.height = `${Math.min(Math.max(scrollHeight, 44), 120)}px`;
       }
     }, [input]);
 
     return (
-      <form
-        onSubmit={handleSubmit}
-        className="relative"
-      >
-        {/* Image Preview */}
+      <form onSubmit={handleSubmit} className="relative space-y-2">
+        {/* File Previews */}
         <AnimatePresence>
-          {imagePreview && (
+          {(imagePreview || uploadedFiles.length > 0) && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="mb-2 relative inline-block"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="flex flex-wrap gap-2 mb-2"
             >
-              <img
-                src={imagePreview}
-                alt="Selected"
-                className="h-20 w-20 object-cover rounded-xl border border-border"
-              />
-              <Button
-                type="button"
-                variant="destructive"
-                size="icon"
-                onClick={removeImage}
-                className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
-              >
-                <X className="w-3 h-3" />
-              </Button>
+              {imagePreview && (
+                <div className="relative inline-block">
+                  <img
+                    src={imagePreview}
+                    alt="Selected"
+                    className="h-16 w-16 object-cover rounded-lg border border-border"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    onClick={removeImage}
+                    className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full"
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
 
+        {/* Main Input Area */}
         <div className="glass-card rounded-2xl p-1.5 flex items-end gap-1.5">
+          {/* Hidden image input */}
           <input
             ref={fileInputRef}
             type="file"
@@ -135,7 +150,16 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
             onChange={handleImageSelect}
             className="hidden"
           />
+
+          {/* File Upload */}
+          <FileUploadButton
+            onFilesSelected={handleFilesSelected}
+            selectedFiles={uploadedFiles}
+            onRemoveFile={handleRemoveFile}
+            disabled={isLoading || disabled}
+          />
           
+          {/* Image Upload */}
           <Button
             type="button"
             variant="ghost"
@@ -147,6 +171,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
             <Image className="w-4 h-4" />
           </Button>
 
+          {/* Voice Input */}
           {isSupported && (
             <Button
               type="button"
@@ -155,8 +180,8 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
               onClick={toggleListening}
               disabled={isLoading || disabled}
               className={`h-9 w-9 rounded-lg flex-shrink-0 transition-colors ${
-                isListening 
-                  ? "text-red-500 bg-red-500/10 hover:bg-red-500/20" 
+                isListening
+                  ? "text-red-500 bg-red-500/10 hover:bg-red-500/20"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
               }`}
             >
@@ -168,6 +193,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
             </Button>
           )}
 
+          {/* Textarea */}
           <textarea
             ref={textareaRef}
             value={input}
@@ -182,11 +208,20 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
               px-3 py-2.5 text-sm leading-relaxed
               min-h-[44px] max-h-[120px]
             "
-            style={{ height: '44px' }}
+            style={{ height: "44px" }}
           />
+
+          {/* Voice Selector */}
+          <VoiceSelectorCompact
+            value={selectedVoice}
+            onChange={onVoiceChange}
+            disabled={isLoading || disabled}
+          />
+
+          {/* Send Button */}
           <Button
             type="submit"
-            disabled={(!input.trim() && !selectedImage) || isLoading || disabled}
+            disabled={(!input.trim() && !selectedImage && uploadedFiles.length === 0) || isLoading || disabled}
             className="
               h-9 w-9 rounded-lg flex-shrink-0
               bg-primary hover:bg-primary/90
