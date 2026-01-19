@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
@@ -21,7 +22,7 @@ const TTSRequestSchema = z.object({
 // User-friendly error messages
 const ERROR_MESSAGES: Record<number, string> = {
   400: "Invalid request format.",
-  401: "Authentication required.",
+  401: "Authentication required. Please sign in.",
   402: "Service quota reached.",
   429: "Service is busy. Please try again.",
   500: "Speech generation unavailable.",
@@ -34,7 +35,38 @@ serve(async (req) => {
   }
 
   try {
-    // Parse and validate input
+    // ========== JWT Authentication ==========
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      console.error("Missing or invalid Authorization header");
+      return new Response(
+        JSON.stringify({ error: ERROR_MESSAGES[401] }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create Supabase client and validate JWT
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getUser(token);
+    
+    if (claimsError || !claimsData?.user) {
+      console.error("JWT validation failed:", claimsError?.message);
+      return new Response(
+        JSON.stringify({ error: ERROR_MESSAGES[401] }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = claimsData.user.id;
+    console.log("Authenticated TTS user:", userId);
+
+    // ========== Parse and validate input ==========
     let body: unknown;
     try {
       body = await req.json();
@@ -66,7 +98,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("TTS request:", { textLength: text.length, voice });
+    console.log("TTS request from user", userId, ":", { textLength: text.length, voice });
 
     const response = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
@@ -88,6 +120,7 @@ serve(async (req) => {
       console.error("TTS API error:", {
         status: response.status,
         error: errorText,
+        userId,
         timestamp: new Date().toISOString(),
       });
       
