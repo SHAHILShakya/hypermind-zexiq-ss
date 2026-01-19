@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, memo, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, MessageCircle, Trash2, Keyboard, Heart, Clock, Eye, Menu, Search } from "lucide-react";
+import { Brain, MessageCircle, Trash2, Keyboard, Heart, Clock, Eye, Menu, Search, Loader2 } from "lucide-react";
 import { NexusOrb } from "@/components/NexusOrb";
 import { ChatMessage } from "@/components/ChatMessage";
 import { ChatInput, ChatInputHandle } from "@/components/ChatInput";
@@ -15,8 +15,8 @@ import { SuggestedPrompts } from "@/components/SuggestedPrompts";
 import { ConversationSearch } from "@/components/ConversationSearch";
 import { ExportDialog } from "@/components/ExportDialog";
 import { UserProfileDropdown } from "@/components/UserProfileDropdown";
-import { useNexusChat } from "@/hooks/useNexusChat";
-import { useChatSessions } from "@/hooks/useChatSessions";
+import { useDatabaseSessions } from "@/hooks/useDatabaseSessions";
+import { useNexusChatDatabase, Message } from "@/hooks/useNexusChatDatabase";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { useTheme } from "@/hooks/useTheme";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -90,16 +90,6 @@ const ShortcutsDialog = memo(() => (
 ShortcutsDialog.displayName = "ShortcutsDialog";
 
 const Index = () => {
-  const [isStarted, setIsStarted] = useState(() => {
-    const stored = localStorage.getItem("zexiq-chat-sessions");
-    if (stored) {
-      const sessions = JSON.parse(stored);
-      return sessions.some((s: { messages: unknown[] }) => s.messages.length > 0);
-    }
-    const legacyStored = localStorage.getItem("zexiq-chat-history");
-    return legacyStored ? JSON.parse(legacyStored).length > 0 : false;
-  });
-  
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
@@ -108,13 +98,15 @@ const Index = () => {
     sessions,
     activeSession,
     activeSessionId,
+    isLoading: isLoadingSessions,
     createSession,
     selectSession,
     deleteSession,
     renameSession,
-    updateSessionMessages,
+    addMessage,
+    updateMessage,
     clearSessionMessages,
-  } = useChatSessions();
+  } = useDatabaseSessions();
 
   const { theme, themeId, setTheme } = useTheme();
   const { speak, stop, isSpeaking, speakingMessageId, selectedVoice, setVoice } = useTextToSpeech();
@@ -138,11 +130,37 @@ const Index = () => {
 
   const { silenceMessage, recordActivity, dismissSilenceMessage } = useSilenceAware(aiSettings.silenceAwareEnabled);
 
-  const handleMessagesChange = useCallback((messages: typeof activeSession.messages) => {
-    if (activeSessionId) {
-      updateSessionMessages(activeSessionId, messages);
-    }
-  }, [activeSessionId, updateSessionMessages]);
+  // Convert session messages to the format expected by useNexusChatDatabase
+  const sessionMessages: Message[] = useMemo(() => 
+    (activeSession?.messages || []).map(m => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      image: m.image,
+      timestamp: m.timestamp,
+    })),
+    [activeSession?.messages]
+  );
+
+  const handleAddMessage = useCallback(async (
+    sessionId: string,
+    message: Omit<Message, "id" | "timestamp">
+  ) => {
+    const result = await addMessage(sessionId, {
+      role: message.role,
+      content: message.content,
+      image: message.image,
+    });
+    return result ? { id: result.id } : null;
+  }, [addMessage]);
+
+  const handleUpdateMessage = useCallback((
+    sessionId: string,
+    messageId: string,
+    content: string
+  ) => {
+    updateMessage(sessionId, messageId, content);
+  }, [updateMessage]);
 
   const { 
     messages, 
@@ -153,7 +171,11 @@ const Index = () => {
     clearMessages, 
     setInitialMessages,
     messageCount 
-  } = useNexusChat(activeSession?.messages || [], handleMessagesChange);
+  } = useNexusChatDatabase(sessionMessages, {
+    sessionId: activeSessionId,
+    onAddMessage: handleAddMessage,
+    onUpdateMessage: handleUpdateMessage,
+  });
 
   const sendMessage = useCallback(async (content: string, image?: File, files?: UploadedFile[]) => {
     updateMoodFromText(content);
@@ -230,11 +252,12 @@ const Index = () => {
     }
   }, [messages]);
 
+  // Auto-create session if none exists
   useEffect(() => {
-    if (isStarted && sessions.length === 0) {
+    if (!isLoadingSessions && sessions.length === 0) {
       createSession();
     }
-  }, [isStarted, sessions.length, createSession]);
+  }, [isLoadingSessions, sessions.length, createSession]);
 
   const features = [
     { icon: Brain, title: "Mood-Reactive", desc: "Adapts to your emotional patterns" },
@@ -242,6 +265,19 @@ const Index = () => {
     { icon: Clock, title: "Time Perspectives", desc: "View decisions across time horizons" },
     { icon: Heart, title: "Truth Modes", desc: "Choose comfort, honest, or brutal honesty" },
   ];
+
+  // Show loading state while sessions are loading
+  if (isLoadingSessions) {
+    return (
+      <div className="h-screen bg-background flex items-center justify-center">
+        <div className="fixed inset-0 bg-mesh-gradient pointer-events-none z-0" />
+        <div className="relative z-10 flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground text-sm">Loading your chats...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-background relative overflow-hidden flex flex-col">
@@ -252,121 +288,23 @@ const Index = () => {
       
       {theme.style === "neon" && <ParticleBackground />}
 
-      <AnimatePresence mode="wait">
-        {!isStarted ? (
-          <motion.div
-            key="landing"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 overflow-auto"
-          >
-            {/* Hero Section */}
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="text-center"
-            >
-              <motion.div
-                initial={{ y: 20 }}
-                animate={{ y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="mb-8"
-              >
-                <NexusOrb isActive size="lg" />
-              </motion.div>
-
-              <motion.h1
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-                className="font-display text-5xl sm:text-6xl md:text-8xl font-bold text-glow-strong mb-4"
-              >
-                <span className="text-gradient">ZEX•IQ</span>
-              </motion.h1>
-
-              <motion.p
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.6, delay: 0.5 }}
-                className="text-lg sm:text-xl md:text-2xl text-muted-foreground mb-2 font-display tracking-wider"
-              >
-                THE MOST ADVANCED AI IN THE WORLD
-              </motion.p>
-
-              <motion.p
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.6, delay: 0.6 }}
-                className="text-xs sm:text-sm md:text-base text-muted-foreground/60 mb-12 max-w-md mx-auto px-4"
-              >
-                Powered by next-gen neural architectures. Code generation. Image analysis. 
-                Voice I/O. Multiple themes. Limitless knowledge.
-              </motion.p>
-
-              <motion.div
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.6, delay: 0.7 }}
-              >
-                <Button
-                  onClick={() => setIsStarted(true)}
-                  className="
-                    group relative px-8 sm:px-10 py-5 sm:py-6 rounded-2xl
-                    bg-primary hover:bg-primary/90
-                    font-display text-base sm:text-lg tracking-wide font-medium
-                    transition-all duration-300
-                  "
-                  style={{
-                    boxShadow: "0 8px 32px hsl(var(--primary) / 0.3)"
-                  }}
-                >
-                  <span className="relative z-10 flex items-center gap-3">
-                    <MessageCircle className="w-5 h-5" />
-                    Start Chat
-                  </span>
-                </Button>
-              </motion.div>
-            </motion.div>
-
-            {/* Features */}
-            <motion.div
-              initial={{ y: 40, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.9 }}
-              className="mt-16 sm:mt-20 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 max-w-5xl px-4"
-            >
-              {features.map((feature, i) => (
-                <motion.div
-                  key={feature.title}
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ duration: 0.4, delay: 1 + i * 0.1 }}
-                >
-                  <FeatureCard {...feature} />
-                </motion.div>
-              ))}
-            </motion.div>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="chat"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute inset-0 z-10 flex flex-col"
-          >
-            {/* Session Sidebar */}
-            <SessionSidebar
-              sessions={sessions}
-              activeSessionId={activeSessionId}
-              onCreateSession={createSession}
-              onSelectSession={selectSession}
-              onDeleteSession={deleteSession}
-              onRenameSession={renameSession}
-              isOpen={isSidebarOpen}
-              onClose={() => setIsSidebarOpen(false)}
-            />
+      <motion.div
+        key="chat"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="absolute inset-0 z-10 flex flex-col"
+      >
+        {/* Session Sidebar */}
+        <SessionSidebar
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          onCreateSession={createSession}
+          onSelectSession={selectSession}
+          onDeleteSession={deleteSession}
+          onRenameSession={renameSession}
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+        />
 
             {/* Header - Minimal & Clean */}
             <header className="flex-shrink-0 glass-strong border-b border-border/10 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 flex items-center justify-between">
