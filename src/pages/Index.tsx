@@ -14,6 +14,7 @@ import { TypingIndicator } from "@/components/TypingIndicator";
 import { SuggestedPrompts } from "@/components/SuggestedPrompts";
 import { ConversationSearch } from "@/components/ConversationSearch";
 import { ExportDialog } from "@/components/ExportDialog";
+import { UserProfileDropdown } from "@/components/UserProfileDropdown";
 import { useNexusChat } from "@/hooks/useNexusChat";
 import { useChatSessions } from "@/hooks/useChatSessions";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
@@ -444,6 +445,8 @@ const Index = () => {
                       </Tooltip>
                     </>
                   )}
+                  
+                  <UserProfileDropdown />
                 </div>
               </TooltipProvider>
             </header>
