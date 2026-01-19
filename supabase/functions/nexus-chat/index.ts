@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
@@ -60,7 +61,7 @@ Remember: You are ZEX•IQ - the future of artificial intelligence, here now. Yo
 // User-friendly error messages (no internal details exposed)
 const ERROR_MESSAGES: Record<number, string> = {
   400: "Invalid request format. Please try again.",
-  401: "Authentication required.",
+  401: "Authentication required. Please sign in.",
   402: "Service quota reached. Please try again later.",
   403: "Access denied.",
   429: "Service is busy. Please try again in a moment.",
@@ -73,7 +74,38 @@ serve(async (req) => {
   }
 
   try {
-    // Parse and validate input
+    // ========== JWT Authentication ==========
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      console.error("Missing or invalid Authorization header");
+      return new Response(
+        JSON.stringify({ error: ERROR_MESSAGES[401] }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create Supabase client and validate JWT
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getUser(token);
+    
+    if (claimsError || !claimsData?.user) {
+      console.error("JWT validation failed:", claimsError?.message);
+      return new Response(
+        JSON.stringify({ error: ERROR_MESSAGES[401] }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = claimsData.user.id;
+    console.log("Authenticated user:", userId);
+
+    // ========== Parse and validate input ==========
     let body: unknown;
     try {
       body = await req.json();
@@ -105,7 +137,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("Processing chat request with", messages.length, "messages");
+    console.log("Processing chat request from user", userId, "with", messages.length, "messages");
 
     // Combine base prompt with dynamic settings
     const fullSystemPrompt = dynamicPrompt 
@@ -134,6 +166,7 @@ serve(async (req) => {
       console.error("AI gateway error:", {
         status: response.status,
         error: errorText,
+        userId,
         timestamp: new Date().toISOString(),
       });
       
@@ -147,7 +180,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("Streaming response from AI gateway");
+    console.log("Streaming response from AI gateway for user", userId);
     
     return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
