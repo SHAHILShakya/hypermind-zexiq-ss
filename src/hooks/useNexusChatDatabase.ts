@@ -110,10 +110,12 @@ export function useNexusChatDatabase(
 
       if (!resp.ok) {
         const errorData = await resp.json().catch(() => ({}));
+        const errorMessage = errorData.error || "Failed to get response";
         if (resp.status === 401) throw new Error("Please sign in to continue");
-        if (resp.status === 429) throw new Error(errorData.error || "Rate limited. Please wait and try again.");
-        if (resp.status === 402) throw new Error(errorData.error || "Quota reached. Please add credits.");
-        throw new Error(errorData.error || "Failed to get response");
+        if (resp.status === 429 || resp.status === 402 || resp.status === 503) {
+          throw new Error(errorMessage);
+        }
+        throw new Error(errorMessage);
       }
 
       if (!resp.body) throw new Error("No response body");
