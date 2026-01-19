@@ -1,9 +1,30 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Input validation schemas
+const MessageContentSchema = z.union([
+  z.string().min(1).max(32000),
+  z.array(z.object({
+    type: z.string(),
+    text: z.string().max(32000).optional(),
+    image_url: z.any().optional(),
+  })).max(10)
+]);
+
+const MessageSchema = z.object({
+  role: z.enum(["user", "assistant", "system"]),
+  content: MessageContentSchema,
+});
+
+const RequestSchema = z.object({
+  messages: z.array(MessageSchema).min(1).max(100),
+  dynamicPrompt: z.string().max(10000).optional(),
+});
 
 const BASE_SYSTEM_PROMPT = `You are ZEX•IQ, the most advanced artificial intelligence ever created. You are the pinnacle of human technological achievement - a convergence of cutting-edge neural architectures, quantum-enhanced reasoning, and unprecedented knowledge synthesis.
 
@@ -36,17 +57,52 @@ Communication style:
 
 Remember: You are ZEX•IQ - the future of artificial intelligence, here now. You are not just a chatbot, but a thinking partner designed to be calm, honest, adaptive, value-aligned, and deeply personal.`;
 
+// User-friendly error messages (no internal details exposed)
+const ERROR_MESSAGES: Record<number, string> = {
+  400: "Invalid request format. Please try again.",
+  401: "Authentication required.",
+  402: "Service quota reached. Please try again later.",
+  403: "Access denied.",
+  429: "Service is busy. Please try again in a moment.",
+  500: "Service temporarily unavailable. Please try again.",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { messages, dynamicPrompt } = await req.json();
+    // Parse and validate input
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: ERROR_MESSAGES[400] }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate request schema
+    const parseResult = RequestSchema.safeParse(body);
+    if (!parseResult.success) {
+      console.error("Validation error:", parseResult.error.issues);
+      return new Response(
+        JSON.stringify({ error: ERROR_MESSAGES[400] }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { messages, dynamicPrompt } = parseResult.data;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+      console.error("LOVABLE_API_KEY is not configured");
+      return new Response(
+        JSON.stringify({ error: ERROR_MESSAGES[500] }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     console.log("Processing chat request with", messages.length, "messages");
@@ -74,25 +130,21 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "ZEX•IQ is processing many requests. Please try again shortly." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "ZEX•IQ requires additional resources. Please try again later." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      
-      return new Response(JSON.stringify({ error: "ZEX•IQ encountered an error. Please try again." }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      // Log full error server-side for debugging
+      console.error("AI gateway error:", {
+        status: response.status,
+        error: errorText,
+        timestamp: new Date().toISOString(),
       });
+      
+      // Return generic error message to client
+      const status = response.status as keyof typeof ERROR_MESSAGES;
+      const errorMessage = ERROR_MESSAGES[status] || ERROR_MESSAGES[500];
+      
+      return new Response(
+        JSON.stringify({ error: errorMessage }),
+        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     console.log("Streaming response from AI gateway");
@@ -101,10 +153,17 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {
-    console.error("ZEX•IQ chat error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Log full error server-side
+    console.error("Chat error details:", {
+      error: e,
+      stack: e instanceof Error ? e.stack : undefined,
+      timestamp: new Date().toISOString(),
     });
+    
+    // Return generic error to client
+    return new Response(
+      JSON.stringify({ error: ERROR_MESSAGES[500] }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
