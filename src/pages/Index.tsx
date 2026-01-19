@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, memo, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, MessageCircle, Trash2, Download, Keyboard, Heart, Clock, Eye, Menu, Search } from "lucide-react";
+import { Brain, MessageCircle, Trash2, Keyboard, Heart, Clock, Eye, Menu, Search } from "lucide-react";
 import { NexusOrb } from "@/components/NexusOrb";
 import { ChatMessage } from "@/components/ChatMessage";
 import { ChatInput, ChatInputHandle } from "@/components/ChatInput";
@@ -13,6 +13,7 @@ import { SilenceMessage } from "@/components/SilenceMessage";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { SuggestedPrompts } from "@/components/SuggestedPrompts";
 import { ConversationSearch } from "@/components/ConversationSearch";
+import { ExportDialog } from "@/components/ExportDialog";
 import { useNexusChat } from "@/hooks/useNexusChat";
 import { useChatSessions } from "@/hooks/useChatSessions";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
@@ -34,6 +35,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import type { UploadedFile } from "@/components/FileUploadButton";
 
 const FeatureCard = memo(({ icon: Icon, title, desc }: { icon: typeof Brain; title: string; desc: string }) => (
   <div className="glass-card rounded-2xl p-6 text-center hover:scale-[1.02] transition-all duration-300">
@@ -55,12 +57,12 @@ const ShortcutsDialog = memo(() => (
       <Button
         variant="ghost"
         size="icon"
-        className="text-muted-foreground hover:text-foreground hover:bg-muted/50"
+        className="text-muted-foreground hover:text-foreground hover:bg-muted/50 h-8 w-8"
       >
         <Keyboard className="w-4 h-4" />
       </Button>
     </DialogTrigger>
-    <DialogContent className="glass-strong border-border">
+    <DialogContent className="glass-strong border-border/30">
       <DialogHeader>
         <DialogTitle className="text-gradient font-display">Keyboard Shortcuts</DialogTitle>
       </DialogHeader>
@@ -68,7 +70,7 @@ const ShortcutsDialog = memo(() => (
         {[
           { keys: "/", desc: "Focus input" },
           { keys: "Ctrl + K", desc: "Clear chat" },
-          { keys: "Ctrl + E", desc: "Export chat" },
+          { keys: "Ctrl + F", desc: "Search" },
           { keys: "Ctrl + N", desc: "New session" },
           { keys: "Escape", desc: "Unfocus input" },
           { keys: "Enter", desc: "Send message" },
@@ -88,25 +90,19 @@ ShortcutsDialog.displayName = "ShortcutsDialog";
 
 const Index = () => {
   const [isStarted, setIsStarted] = useState(() => {
-    // Auto-start if there are sessions with messages
     const stored = localStorage.getItem("zexiq-chat-sessions");
     if (stored) {
       const sessions = JSON.parse(stored);
       return sessions.some((s: { messages: unknown[] }) => s.messages.length > 0);
     }
-    // Check legacy storage
     const legacyStored = localStorage.getItem("zexiq-chat-history");
     return legacyStored ? JSON.parse(legacyStored).length > 0 : false;
   });
   
-  // Sidebar state - closed by default
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
-  // Search state
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
-  // Hooks
   const {
     sessions,
     activeSession,
@@ -122,7 +118,6 @@ const Index = () => {
   const { theme, themeId, setTheme } = useTheme();
   const { speak, stop, isSpeaking, speakingMessageId, selectedVoice, setVoice } = useTextToSpeech();
   
-  // AI Intelligence settings
   const {
     settings: aiSettings,
     updateMoodFromText,
@@ -140,11 +135,7 @@ const Index = () => {
     buildDynamicPrompt,
   } = useAISettings();
 
-  // Silence awareness
   const { silenceMessage, recordActivity, dismissSilenceMessage } = useSilenceAware(aiSettings.silenceAwareEnabled);
-
-  // Note: Mood sync to theme is disabled - moods are displayed but don't auto-change theme
-  // Themes only change when user explicitly selects them
 
   const handleMessagesChange = useCallback((messages: typeof activeSession.messages) => {
     if (activeSessionId) {
@@ -159,24 +150,33 @@ const Index = () => {
     regenerateResponse,
     editAndResend,
     clearMessages, 
-    exportChat,
     setInitialMessages,
     messageCount 
   } = useNexusChat(activeSession?.messages || [], handleMessagesChange);
 
-  // Wrap sendMessage to include dynamic prompt
-  const sendMessage = useCallback(async (content: string, image?: File) => {
-    // Update mood from text
+  const sendMessage = useCallback(async (content: string, image?: File, files?: UploadedFile[]) => {
     updateMoodFromText(content);
     recordActivity();
     
-    // Build dynamic prompt based on settings
     const dynamicPrompt = buildDynamicPrompt(themeId);
     
-    await baseSendMessage(content, image, dynamicPrompt);
+    // Build file context for the message
+    let fileContext = "";
+    if (files && files.length > 0) {
+      fileContext = "\n\n[Attached files:\n";
+      for (const f of files) {
+        if (f.content) {
+          fileContext += `--- ${f.file.name} ---\n${f.content}\n\n`;
+        } else {
+          fileContext += `--- ${f.file.name} (${f.type}) ---\n`;
+        }
+      }
+      fileContext += "]";
+    }
+    
+    await baseSendMessage(content + fileContext, image, dynamicPrompt);
   }, [baseSendMessage, updateMoodFromText, recordActivity, buildDynamicPrompt, themeId]);
 
-  // Sync messages when session changes
   useEffect(() => {
     if (activeSession) {
       setInitialMessages(activeSession.messages);
@@ -200,42 +200,35 @@ const Index = () => {
     createSession();
   }, [createSession]);
 
-  // Keyboard shortcuts
   const shortcuts = useMemo(() => [
     { key: "k", ctrl: true, action: handleClearMessages, description: "Clear chat" },
-    { key: "e", ctrl: true, action: exportChat, description: "Export chat" },
     { key: "n", ctrl: true, action: handleNewSession, description: "New session" },
     { key: "f", ctrl: true, action: () => setIsSearchOpen(true), description: "Search" },
     { key: "/", action: () => chatInputRef.current?.focus(), description: "Focus input" },
-  ], [handleClearMessages, exportChat, handleNewSession]);
+  ], [handleClearMessages, handleNewSession]);
 
   useKeyboardShortcuts(shortcuts);
 
-  // Handle edit and resend
   const handleEditMessage = useCallback((messageId: string, newContent: string) => {
     const dynamicPrompt = buildDynamicPrompt(themeId);
     editAndResend(messageId, newContent, dynamicPrompt);
   }, [editAndResend, buildDynamicPrompt, themeId]);
 
-  // Handle scroll to message (for search)
   const handleScrollToMessage = useCallback((messageId: string) => {
     setHighlightedMessageId(messageId);
     const element = document.getElementById(`message-${messageId}`);
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-    // Remove highlight after 2 seconds
     setTimeout(() => setHighlightedMessageId(null), 2000);
   }, []);
 
-  // Auto-scroll to bottom with smooth animation
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
     }
   }, [messages]);
 
-  // Create initial session if none exists when starting
   useEffect(() => {
     if (isStarted && sessions.length === 0) {
       createSession();
@@ -251,12 +244,11 @@ const Index = () => {
 
   return (
     <div className="h-screen bg-background relative overflow-hidden flex flex-col">
-      {/* Background layers - fixed position */}
+      {/* Background layers */}
       <div className="fixed inset-0 bg-mesh-gradient pointer-events-none z-0" />
       <div className="fixed inset-0 bg-grid-pattern pointer-events-none z-0" />
       <div className="fixed inset-0 bg-radial-glow pointer-events-none z-0" />
       
-      {/* Particles only for neon themes */}
       {theme.style === "neon" && <ParticleBackground />}
 
       <AnimatePresence mode="wait">
@@ -266,7 +258,7 @@ const Index = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 overflow-auto"
+            className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 overflow-auto"
           >
             {/* Hero Section */}
             <motion.div
@@ -275,7 +267,6 @@ const Index = () => {
               transition={{ duration: 0.8, ease: "easeOut" }}
               className="text-center"
             >
-              {/* Orb */}
               <motion.div
                 initial={{ y: 20 }}
                 animate={{ y: 0 }}
@@ -285,12 +276,11 @@ const Index = () => {
                 <NexusOrb isActive size="lg" />
               </motion.div>
 
-              {/* Title */}
               <motion.h1
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
-                className="font-display text-6xl md:text-8xl font-bold text-glow-strong mb-4"
+                className="font-display text-5xl sm:text-6xl md:text-8xl font-bold text-glow-strong mb-4"
               >
                 <span className="text-gradient">ZEX•IQ</span>
               </motion.h1>
@@ -299,7 +289,7 @@ const Index = () => {
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.5 }}
-                className="text-xl md:text-2xl text-muted-foreground mb-2 font-display tracking-wider"
+                className="text-lg sm:text-xl md:text-2xl text-muted-foreground mb-2 font-display tracking-wider"
               >
                 THE MOST ADVANCED AI IN THE WORLD
               </motion.p>
@@ -308,13 +298,12 @@ const Index = () => {
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.6 }}
-                className="text-sm md:text-base text-muted-foreground/60 mb-12 max-w-md mx-auto"
+                className="text-xs sm:text-sm md:text-base text-muted-foreground/60 mb-12 max-w-md mx-auto px-4"
               >
                 Powered by next-gen neural architectures. Code generation. Image analysis. 
                 Voice I/O. Multiple themes. Limitless knowledge.
               </motion.p>
 
-              {/* CTA Button */}
               <motion.div
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
@@ -323,9 +312,9 @@ const Index = () => {
                 <Button
                   onClick={() => setIsStarted(true)}
                   className="
-                    group relative px-10 py-6 rounded-2xl
+                    group relative px-8 sm:px-10 py-5 sm:py-6 rounded-2xl
                     bg-primary hover:bg-primary/90
-                    font-display text-lg tracking-wide font-medium
+                    font-display text-base sm:text-lg tracking-wide font-medium
                     transition-all duration-300
                   "
                   style={{
@@ -345,7 +334,7 @@ const Index = () => {
               initial={{ y: 40, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.9 }}
-              className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl"
+              className="mt-16 sm:mt-20 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 max-w-5xl px-4"
             >
               {features.map((feature, i) => (
                 <motion.div
@@ -366,7 +355,7 @@ const Index = () => {
             animate={{ opacity: 1 }}
             className="absolute inset-0 z-10 flex flex-col"
           >
-            {/* Session Sidebar - Overlay style */}
+            {/* Session Sidebar */}
             <SessionSidebar
               sessions={sessions}
               activeSessionId={activeSessionId}
@@ -378,21 +367,21 @@ const Index = () => {
               onClose={() => setIsSidebarOpen(false)}
             />
 
-            {/* Header - Fixed at top */}
-            <header className="flex-shrink-0 glass-strong border-b border-border/20 px-4 md:px-6 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            {/* Header - Minimal & Clean */}
+            <header className="flex-shrink-0 glass-strong border-b border-border/10 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 flex items-center justify-between">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9"
+                  className="h-8 w-8 sm:h-9 sm:w-9"
                   onClick={() => setIsSidebarOpen(true)}
                 >
-                  <Menu className="w-5 h-5" />
+                  <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
                 </Button>
                 <NexusOrb isActive isThinking={isLoading} size="sm" />
                 <div className="hidden sm:block">
-                  <h1 className="font-display text-lg font-bold text-gradient">ZEX•IQ</h1>
-                  <p className="text-[10px] text-muted-foreground leading-none">
+                  <h1 className="font-display text-base sm:text-lg font-bold text-gradient leading-none">ZEX•IQ</h1>
+                  <p className="text-[9px] sm:text-[10px] text-muted-foreground">
                     {isLoading ? "Thinking..." : "Ready"}
                   </p>
                 </div>
@@ -417,7 +406,10 @@ const Index = () => {
                     onVoiceChange={setVoice}
                   />
                   <ThemeSelector currentTheme={themeId} onSelectTheme={setTheme} />
-                  <ShortcutsDialog />
+                  
+                  <div className="hidden sm:flex items-center">
+                    <ShortcutsDialog />
+                  </div>
                   
                   {messageCount > 0 && (
                     <>
@@ -435,19 +427,7 @@ const Index = () => {
                         <TooltipContent>Search (Ctrl+F)</TooltipContent>
                       </Tooltip>
                       
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={exportChat}
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Export Chat</TooltipContent>
-                      </Tooltip>
+                      <ExportDialog messages={messages} />
                       
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -476,27 +456,27 @@ const Index = () => {
               onClose={() => setIsSearchOpen(false)}
             />
 
-            {/* Messages Area - Only this scrolls */}
+            {/* Messages Area */}
             <div 
               ref={scrollAreaRef}
               className="flex-1 overflow-y-auto overscroll-contain"
             >
-              <div className="max-w-3xl mx-auto px-4 md:px-6 py-6">
+              <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
                 {messages.length === 0 && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4 }}
-                    className="text-center py-16 md:py-24"
+                    className="text-center py-12 sm:py-16 md:py-24"
                   >
                     <NexusOrb isActive size="md" />
-                    <h2 className="font-display text-xl md:text-2xl font-bold text-gradient mt-6 mb-2">
+                    <h2 className="font-display text-lg sm:text-xl md:text-2xl font-bold text-gradient mt-6 mb-2">
                       How can I help you today?
                     </h2>
-                    <p className="text-muted-foreground text-sm max-w-sm mx-auto mb-8">
+                    <p className="text-muted-foreground text-xs sm:text-sm max-w-sm mx-auto mb-6 sm:mb-8 px-4">
                       Ask me anything. I'm here to help with reasoning, code, analysis, and more.
                     </p>
-                    <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto">
+                    <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto px-4">
                       {["Write code", "Analyze images", "Explain concepts", "Generate ideas"].map((suggestion) => (
                         <Button
                           key={suggestion}
@@ -512,7 +492,7 @@ const Index = () => {
                   </motion.div>
                 )}
 
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {messages.map((message, index) => {
                     const isLastAssistant = message.role === "assistant" && 
                       index === messages.length - 1;
@@ -533,14 +513,12 @@ const Index = () => {
                     );
                   })}
                   
-                  {/* Typing indicator */}
                   <AnimatePresence>
                     {isLoading && messages.length > 0 && messages[messages.length - 1].role === "user" && (
                       <TypingIndicator />
                     )}
                   </AnimatePresence>
                   
-                  {/* Suggested prompts after AI response */}
                   {!isLoading && messages.length > 0 && messages[messages.length - 1].role === "assistant" && (
                     <SuggestedPrompts 
                       onSelect={sendMessage}
@@ -549,19 +527,23 @@ const Index = () => {
                   )}
                 </div>
                 
-                {/* Scroll anchor */}
                 <div ref={messagesEndRef} className="h-px" />
               </div>
             </div>
 
-            {/* Input Area - Fixed at bottom */}
-            <div className="flex-shrink-0 border-t border-border/10 bg-background/50 backdrop-blur-xl">
-              <div className="max-w-3xl mx-auto px-4 md:px-6 py-3">
-                <ChatInput ref={chatInputRef} onSend={sendMessage} isLoading={isLoading} />
+            {/* Input Area - Clean & Minimal */}
+            <div className="flex-shrink-0 border-t border-border/10 glass-subtle">
+              <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 py-2.5 sm:py-3">
+                <ChatInput 
+                  ref={chatInputRef} 
+                  onSend={sendMessage} 
+                  isLoading={isLoading}
+                  selectedVoice={selectedVoice}
+                  onVoiceChange={setVoice}
+                />
               </div>
             </div>
             
-            {/* Silence Message */}
             <SilenceMessage message={silenceMessage} onDismiss={dismissSilenceMessage} />
           </motion.div>
         )}

@@ -3,7 +3,19 @@ import { toast } from "sonner";
 
 const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`;
 
-export type VoiceId = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
+export type VoiceId =
+  | "alloy"
+  | "echo"
+  | "fable"
+  | "onyx"
+  | "nova"
+  | "shimmer"
+  | "coral"
+  | "sage"
+  | "ash"
+  | "ballad"
+  | "verse"
+  | "juniper";
 
 export function useTextToSpeech() {
   const [isSpeaking, setIsSpeaking] = useState(false);
