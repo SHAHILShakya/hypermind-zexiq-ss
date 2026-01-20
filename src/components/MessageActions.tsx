@@ -80,11 +80,7 @@ export const MessageActions = memo(({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="flex items-center gap-0.5"
-      >
+      <div className="flex items-center gap-0.5">
         {/* Copy button - available for all messages */}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -227,7 +223,7 @@ export const MessageActions = memo(({
             </Tooltip>
           </>
         )}
-      </motion.div>
+      </div>
     </TooltipProvider>
   );
 });

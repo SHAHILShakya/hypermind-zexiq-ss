@@ -127,6 +127,17 @@ const Index = () => {
     toggleAutoRead,
     buildDynamicPrompt,
   } = useAISettings();
+  
+  // Mood sync: auto-switch theme based on detected mood
+  useEffect(() => {
+    if (aiSettings.moodSyncEnabled && aiSettings.currentMood !== "neutral") {
+      const { MOOD_THEME_MAP } = require("@/hooks/useAISettings");
+      const targetTheme = MOOD_THEME_MAP[aiSettings.currentMood];
+      if (targetTheme && targetTheme !== themeId) {
+        setTheme(targetTheme);
+      }
+    }
+  }, [aiSettings.moodSyncEnabled, aiSettings.currentMood, themeId, setTheme]);
 
   const { silenceMessage, recordActivity, dismissSilenceMessage } = useSilenceAware(aiSettings.silenceAwareEnabled);
 
