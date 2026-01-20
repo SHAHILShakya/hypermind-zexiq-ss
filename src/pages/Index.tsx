@@ -20,7 +20,7 @@ import { useNexusChatDatabase, Message } from "@/hooks/useNexusChatDatabase";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { useTheme } from "@/hooks/useTheme";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { useAISettings } from "@/hooks/useAISettings";
+import { useAISettings, MOOD_THEME_MAP } from "@/hooks/useAISettings";
 import { useSilenceAware } from "@/hooks/useSilenceAware";
 import { Button } from "@/components/ui/button";
 import {
@@ -131,7 +131,6 @@ const Index = () => {
   // Mood sync: auto-switch theme based on detected mood
   useEffect(() => {
     if (aiSettings.moodSyncEnabled && aiSettings.currentMood !== "neutral") {
-      const { MOOD_THEME_MAP } = require("@/hooks/useAISettings");
       const targetTheme = MOOD_THEME_MAP[aiSettings.currentMood];
       if (targetTheme && targetTheme !== themeId) {
         setTheme(targetTheme);
