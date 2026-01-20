@@ -165,7 +165,7 @@ export const FileUploadButton = memo(({
 
       const type = getFileType(file.type);
       const uploadedFile: UploadedFile = {
-        id: crypto.randomUUID(),
+        id: (crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`),
         file,
         type,
       };
