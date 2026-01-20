@@ -1,12 +1,15 @@
 import { memo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Paperclip, X, FileText, FileImage, File, Loader2 } from "lucide-react";
+import { Paperclip, X, FileText, FileImage, File, Loader2, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-// Supported file types with categories
+// Supported file types with categories - comprehensive support
 const FILE_TYPES = {
-  images: ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"],
+  images: [
+    "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+    "image/bmp", "image/tiff", "image/heic", "image/heif", "image/avif"
+  ],
   documents: [
     "application/pdf",
     "application/msword",
@@ -15,30 +18,56 @@ const FILE_TYPES = {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.ms-powerpoint",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/rtf",
+    "application/epub+zip",
     "text/plain",
     "text/csv",
     "text/markdown",
+    "text/rtf",
     "application/json",
     "application/xml",
+    "text/xml",
+    "application/yaml",
+    "text/yaml",
   ],
   code: [
     "text/javascript",
+    "application/javascript",
     "text/typescript",
     "text/html",
     "text/css",
     "text/x-python",
+    "application/x-python",
     "text/x-java",
     "text/x-c",
     "text/x-cpp",
+    "text/x-csharp",
+    "text/x-go",
+    "text/x-rust",
+    "text/x-swift",
+    "text/x-kotlin",
+    "text/x-php",
+    "text/x-ruby",
+    "text/x-sql",
+    "text/x-sh",
+    "text/x-shellscript",
+    "application/sql",
+  ],
+  archives: [
+    "application/zip",
+    "application/x-rar-compressed",
+    "application/x-7z-compressed",
+    "application/gzip",
+    "application/x-tar",
   ],
 };
 
-const ALL_TYPES = [...FILE_TYPES.images, ...FILE_TYPES.documents, ...FILE_TYPES.code];
+const ALL_TYPES = [...FILE_TYPES.images, ...FILE_TYPES.documents, ...FILE_TYPES.code, ...FILE_TYPES.archives];
 
 export interface UploadedFile {
   id: string;
   file: File;
-  type: "image" | "document" | "code";
+  type: "image" | "document" | "code" | "archive";
   preview?: string;
   content?: string;
 }
@@ -62,18 +91,23 @@ export const FileUploadButton = memo(({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const getFileType = (mimeType: string): "image" | "document" | "code" => {
+  const getFileType = (mimeType: string): "image" | "document" | "code" | "archive" => {
     if (FILE_TYPES.images.includes(mimeType)) return "image";
     if (FILE_TYPES.code.includes(mimeType)) return "code";
+    if (FILE_TYPES.archives.includes(mimeType)) return "archive";
     return "document";
   };
 
-  const getFileIcon = (type: "image" | "document" | "code") => {
+  const getFileIcon = (type: "image" | "document" | "code" | "archive") => {
     switch (type) {
       case "image":
         return FileImage;
       case "document":
         return FileText;
+      case "archive":
+        return Archive;
+      case "code":
+        return File;
       default:
         return File;
     }
