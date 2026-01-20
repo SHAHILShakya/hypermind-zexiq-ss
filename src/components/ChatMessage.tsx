@@ -156,12 +156,28 @@ export const ChatMessage = memo(({
                   </div>
                 </motion.div>
               ) : (
-                <motion.p 
-                  key="content"
-                  className="text-sm leading-relaxed whitespace-pre-wrap"
-                >
-                  {content}
-                </motion.p>
+                <motion.div key="content">
+                  {/* Parse and display file attachments if present */}
+                  {content.includes("[Attached files:") && (
+                    <div className="mb-2 p-2 rounded-lg bg-muted/30 border border-border/30">
+                      <p className="text-xs text-muted-foreground mb-1">📎 Files attached</p>
+                      <div className="text-xs text-muted-foreground/80">
+                        {content
+                          .match(/--- (.+?) ---/g)
+                          ?.map((match, i) => (
+                            <span key={i} className="inline-block bg-muted/50 px-2 py-0.5 rounded mr-1 mb-1">
+                              {match.replace(/---/g, "").trim()}
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                    {content.includes("[Attached files:")
+                      ? content.split("[Attached files:")[0].trim()
+                      : content}
+                  </p>
+                </motion.div>
               )}
             </AnimatePresence>
           ) : (
