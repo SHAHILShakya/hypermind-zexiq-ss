@@ -11,7 +11,7 @@ import { AISettingsPanel } from "@/components/AISettingsPanel";
 import { MoodIndicator } from "@/components/MoodIndicator";
 import { SilenceMessage } from "@/components/SilenceMessage";
 import { TypingIndicator } from "@/components/TypingIndicator";
-import { SuggestedPrompts } from "@/components/SuggestedPrompts";
+
 import { ConversationSearch } from "@/components/ConversationSearch";
 import { ExportDialog } from "@/components/ExportDialog";
 import { UserProfileDropdown } from "@/components/UserProfileDropdown";
@@ -460,12 +460,6 @@ const Index = () => {
                     )}
                   </AnimatePresence>
                   
-                  {!isLoading && messages.length > 0 && messages[messages.length - 1].role === "assistant" && (
-                    <SuggestedPrompts 
-                      onSelect={sendMessage}
-                      lastMessage={messages[messages.length - 1].content}
-                    />
-                  )}
                 </div>
                 
                 <div ref={messagesEndRef} className="h-px" />
