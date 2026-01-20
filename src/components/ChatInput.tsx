@@ -79,19 +79,18 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
       }
     }, [transcript, isListening]);
 
-    const handleSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
+    const submitMessage = useCallback(() => {
       if ((input.trim() || uploadedFiles.length > 0) && !isLoading && !disabled) {
         onSend(input.trim(), undefined, uploadedFiles.length > 0 ? uploadedFiles : undefined);
         setInput("");
         setUploadedFiles([]);
       }
-    };
+    }, [input, uploadedFiles, isLoading, disabled, onSend]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        handleSubmit(e);
+        submitMessage();
       }
     };
 
@@ -136,7 +135,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
 
       const type = getFileType(file.type);
       const uploadedFile: UploadedFile = {
-        id: crypto.randomUUID(),
+        id: (crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`),
         file,
         type,
       };
@@ -246,9 +245,9 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
         </AnimatePresence>
 
         {/* Main Input Container - ChatGPT Style */}
-        <form onSubmit={handleSubmit}>
+        <div>
           <div className="relative bg-muted/50 backdrop-blur-sm border border-border/40 rounded-2xl shadow-sm focus-within:border-border/60 transition-colors">
-            {/* Hidden file input - outside form to prevent submission */}
+            {/* Hidden file input */}
             <input
               ref={fileInputRef}
               type="file"
@@ -328,7 +327,12 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
 
               {/* Send Button */}
               <Button
-                type="submit"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  submitMessage();
+                }}
                 disabled={(!input.trim() && uploadedFiles.length === 0) || isLoading || disabled}
                 size="icon"
                 className="h-8 w-8 rounded-lg bg-foreground text-background hover:bg-foreground/90 disabled:opacity-30"
@@ -341,7 +345,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
               </Button>
             </div>
           </div>
-        </form>
+        </div>
 
         {/* Footer Text */}
         <p className="text-center text-[10px] text-muted-foreground/50 mt-2">
