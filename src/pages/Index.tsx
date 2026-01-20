@@ -476,17 +476,15 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Input Area - Clean & Minimal */}
-            <div className="flex-shrink-0 border-t border-border/10 glass-subtle">
-              <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 py-2.5 sm:py-3">
-                <ChatInput 
-                  ref={chatInputRef} 
-                  onSend={sendMessage} 
-                  isLoading={isLoading}
-                  selectedVoice={selectedVoice}
-                  onVoiceChange={setVoice}
-                />
-              </div>
+            {/* Input Area - ChatGPT Style */}
+            <div className="flex-shrink-0 py-3 sm:py-4 bg-gradient-to-t from-background via-background to-transparent">
+              <ChatInput 
+                ref={chatInputRef} 
+                onSend={sendMessage} 
+                isLoading={isLoading}
+                selectedVoice={selectedVoice}
+                onVoiceChange={setVoice}
+              />
             </div>
             
             <SilenceMessage message={silenceMessage} onDismiss={dismissSilenceMessage} />
