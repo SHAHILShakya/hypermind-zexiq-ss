@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, memo, forwardRef, useImperativeHandle } from "react";
+import { useState, useRef, useEffect, memo, forwardRef, useImperativeHandle, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Loader2, Image, X, Mic, MicOff, Paperclip, FileText, FileImage, File, Archive, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -107,54 +107,74 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
       return undefined;
     };
 
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files || []);
-      if (files.length === 0) return;
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Prevent any default behavior that could cause navigation
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+    
+    const files = Array.from(fileList);
 
-      if (uploadedFiles.length + files.length > MAX_FILES) {
-        toast.error(`Maximum ${MAX_FILES} files allowed`);
-        return;
-      }
-
-      const newFiles: UploadedFile[] = [];
-
-      for (const file of files) {
-        if (file.size > MAX_FILE_SIZE) {
-          toast.error(`${file.name} is too large (max 20MB)`);
-          continue;
-        }
-
-        const type = getFileType(file.type);
-        const uploadedFile: UploadedFile = {
-          id: crypto.randomUUID(),
-          file,
-          type,
-        };
-
-        // Create preview for images
-        if (type === "image") {
-          uploadedFile.preview = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(file);
-          });
-        }
-
-        // Read content for text files
-        uploadedFile.content = await readFileContent(file);
-
-        newFiles.push(uploadedFile);
-      }
-
-      if (newFiles.length > 0) {
-        setUploadedFiles(prev => [...prev, ...newFiles]);
-        toast.success(`${newFiles.length} file(s) added`);
-      }
-
+    if (uploadedFiles.length + files.length > MAX_FILES) {
+      toast.error(`Maximum ${MAX_FILES} files allowed`);
+      // Reset the input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
-    };
+      return;
+    }
+
+    const newFiles: UploadedFile[] = [];
+
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(`${file.name} is too large (max 20MB)`);
+        continue;
+      }
+
+      const type = getFileType(file.type);
+      const uploadedFile: UploadedFile = {
+        id: crypto.randomUUID(),
+        file,
+        type,
+      };
+
+      // Create preview for images
+      if (type === "image") {
+        try {
+          uploadedFile.preview = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        } catch {
+          // Skip preview on error
+        }
+      }
+
+      // Read content for text files
+      try {
+        uploadedFile.content = await readFileContent(file);
+      } catch {
+        // Skip content on error
+      }
+
+      newFiles.push(uploadedFile);
+    }
+
+    if (newFiles.length > 0) {
+      setUploadedFiles(prev => [...prev, ...newFiles]);
+      toast.success(`${newFiles.length} file(s) added`);
+    }
+
+    // Reset file input after processing
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, [uploadedFiles.length]);
 
     const removeFile = (id: string) => {
       setUploadedFiles(prev => prev.filter(f => f.id !== id));
@@ -228,13 +248,14 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
         {/* Main Input Container - ChatGPT Style */}
         <form onSubmit={handleSubmit}>
           <div className="relative bg-muted/50 backdrop-blur-sm border border-border/40 rounded-2xl shadow-sm focus-within:border-border/60 transition-colors">
-            {/* Hidden file input */}
+            {/* Hidden file input - outside form to prevent submission */}
             <input
               ref={fileInputRef}
               type="file"
               accept={ALL_TYPES.join(",")}
               multiple
               onChange={handleFileSelect}
+              onClick={(e) => e.stopPropagation()}
               className="hidden"
             />
 
@@ -264,7 +285,11 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
                   disabled={isLoading || disabled || uploadedFiles.length >= MAX_FILES}
                   className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 >

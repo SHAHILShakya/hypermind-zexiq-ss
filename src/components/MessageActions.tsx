@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useState, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Copy, 
@@ -9,7 +9,8 @@ import {
   ThumbsUp, 
   ThumbsDown,
   MoreHorizontal,
-  Share2
+  Share2,
+  LucideIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +20,16 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+
+// Wrapper button that properly forwards refs for Tooltip compatibility
+const ActionButton = forwardRef<
+  HTMLButtonElement,
+  React.ComponentPropsWithoutRef<typeof Button> & { icon: LucideIcon; iconClassName?: string }
+>(({ icon: Icon, iconClassName, ...props }, ref) => (
+  <Button ref={ref} {...props}>
+    <Icon className={iconClassName || "w-3.5 h-3.5"} />
+  </Button>
+));
 
 interface MessageActionsProps {
   content: string;
@@ -98,7 +109,7 @@ export const MessageActions = memo(({
                     animate={{ scale: 1 }}
                     exit={{ scale: 0.5 }}
                   >
-                    <Check className="w-3.5 h-3.5 text-green-500" />
+                    <Check className="w-3.5 h-3.5 text-primary" />
                   </motion.div>
                 ) : (
                   <motion.div
@@ -125,18 +136,13 @@ export const MessageActions = memo(({
             {onSpeak && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
+                  <ActionButton
                     variant="ghost"
                     size="icon"
                     onClick={onSpeak}
                     className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  >
-                    {isSpeaking ? (
-                      <VolumeX className="w-3.5 h-3.5" />
-                    ) : (
-                      <Volume2 className="w-3.5 h-3.5" />
-                    )}
-                  </Button>
+                    icon={isSpeaking ? VolumeX : Volume2}
+                  />
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs">
                   {isSpeaking ? "Stop" : "Read aloud"}
@@ -148,20 +154,75 @@ export const MessageActions = memo(({
             {showRegenerate && onRegenerate && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
+                  <ActionButton
                     variant="ghost"
                     size="icon"
                     onClick={onRegenerate}
                     className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </Button>
+                    icon={RefreshCw}
+                  />
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs">
                   Regenerate
                 </TooltipContent>
               </Tooltip>
             )}
+
+            {/* Like button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ActionButton
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleLike}
+                  className={`h-7 w-7 hover:bg-muted/50 transition-colors ${
+                    liked === true 
+                      ? "text-green-500" 
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  icon={ThumbsUp}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                Good response
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Dislike button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ActionButton
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleDislike}
+                  className={`h-7 w-7 hover:bg-muted/50 transition-colors ${
+                    liked === false 
+                      ? "text-red-500" 
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  icon={ThumbsDown}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                Bad response
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Share button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ActionButton
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleShare}
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  icon={Share2}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                Share
+              </TooltipContent>
+            </Tooltip>
 
             {/* Like button */}
             <Tooltip>

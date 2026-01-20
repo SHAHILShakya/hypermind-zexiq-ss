@@ -129,12 +129,21 @@ export const FileUploadButton = memo(({
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+    // Prevent any default behavior
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+    
+    const files = Array.from(fileList);
 
     // Check max files
     if (selectedFiles.length + files.length > MAX_FILES) {
       toast.error(`Maximum ${MAX_FILES} files allowed`);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       return;
     }
 
@@ -163,15 +172,24 @@ export const FileUploadButton = memo(({
 
       // Create preview for images
       if (type === "image") {
-        uploadedFile.preview = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
+        try {
+          uploadedFile.preview = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        } catch {
+          // Skip preview on error
+        }
       }
 
       // Read content for text files
-      uploadedFile.content = await readFileContent(file);
+      try {
+        uploadedFile.content = await readFileContent(file);
+      } catch {
+        // Skip content on error
+      }
 
       newFiles.push(uploadedFile);
     }
@@ -250,6 +268,7 @@ export const FileUploadButton = memo(({
         accept={ALL_TYPES.join(",")}
         multiple
         onChange={handleFileSelect}
+        onClick={(e) => e.stopPropagation()}
         className="hidden"
       />
       
@@ -257,7 +276,11 @@ export const FileUploadButton = memo(({
         type="button"
         variant="ghost"
         size="icon"
-        onClick={() => fileInputRef.current?.click()}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          fileInputRef.current?.click();
+        }}
         disabled={disabled || isProcessing || selectedFiles.length >= MAX_FILES}
         className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/30 flex-shrink-0"
       >
