@@ -96,10 +96,17 @@ interface AIProvider {
 
 const AI_PROVIDERS: AIProvider[] = [
   {
+    name: "Perplexity",
+    endpoint: "https://api.perplexity.ai/chat/completions",
+    getApiKey: () => Deno.env.get("PERPLEXITY_API_KEY"),
+    model: "sonar", // Fast search-grounded model
+    supportsVision: false,
+  },
+  {
     name: "Groq",
     endpoint: "https://api.groq.com/openai/v1/chat/completions",
     getApiKey: () => Deno.env.get("GROQ_API_KEY"),
-    model: "llama-3.3-70b-versatile", // Fast and capable
+    model: "llama-3.3-70b-versatile",
     supportsVision: false,
   },
   {
