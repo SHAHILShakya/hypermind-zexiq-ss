@@ -5,9 +5,13 @@ import type { Message } from "./useChatSessions";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nexus-chat`;
 
-async function getAuthToken(): Promise<string | null> {
+async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token ?? null;
+  if (session?.access_token) {
+    return { Authorization: `Bearer ${session.access_token}` };
+  }
+  // Use anon key when not authenticated
+  return { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY };
 }
 
 export function useNexusChat(
@@ -26,9 +30,9 @@ export function useNexusChat(
   const sendMessage = useCallback(async (content: string, image?: File, dynamicPrompt?: string) => {
     lastUserMessageRef.current = { content, image, dynamicPrompt };
     
-    const token = await getAuthToken();
-    if (!token) {
-      toast.error("Please sign in to use chat");
+    const authHeaders = await getAuthHeaders();
+    if (!authHeaders) {
+      toast.error("Failed to initialize chat");
       return null;
     }
 
@@ -73,7 +77,7 @@ export function useNexusChat(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          ...authHeaders,
         },
         body: JSON.stringify({ messages: apiMessages, dynamicPrompt }),
       });
@@ -133,8 +137,7 @@ export function useNexusChat(
 
   const regenerateResponse = useCallback(async (dynamicPrompt?: string) => {
     if (messages.length < 2) return;
-    const token = await getAuthToken();
-    if (!token) { toast.error("Please sign in"); return; }
+    const authHeaders = await getAuthHeaders();
 
     let lastUserIndex = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -160,7 +163,7 @@ export function useNexusChat(
     try {
       const resp = await fetch(CHAT_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({ messages: apiMessages, dynamicPrompt }),
       });
       if (!resp.ok || !resp.body) throw new Error("Failed to regenerate");
@@ -205,8 +208,7 @@ export function useNexusChat(
   const setInitialMessages = useCallback((newMessages: Message[]) => setMessages(newMessages), []);
 
   const editAndResend = useCallback(async (messageId: string, newContent: string, dynamicPrompt?: string) => {
-    const token = await getAuthToken();
-    if (!token) { toast.error("Please sign in"); return; }
+    const authHeaders = await getAuthHeaders();
     const messageIndex = messages.findIndex(m => m.id === messageId);
     if (messageIndex === -1) return;
     const messagesBeforeEdit = messages.slice(0, messageIndex);
@@ -219,7 +221,7 @@ export function useNexusChat(
     const apiMessages = withEditedMessage.map((m) => m.image ? { role: m.role, content: [{ type: "text", text: m.content || "Analyze" }, { type: "image_url", image_url: { url: m.image } }] } : { role: m.role, content: m.content });
     const assistantId = crypto.randomUUID();
     try {
-      const resp = await fetch(CHAT_URL, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ messages: apiMessages, dynamicPrompt }) });
+      const resp = await fetch(CHAT_URL, { method: "POST", headers: { "Content-Type": "application/json", ...authHeaders }, body: JSON.stringify({ messages: apiMessages, dynamicPrompt }) });
       if (!resp.ok || !resp.body) throw new Error("Failed");
       const reader = resp.body.getReader(); const decoder = new TextDecoder(); let textBuffer = ""; let assistantContent = "";
       const withAssistant = [...withEditedMessage, { id: assistantId, role: "assistant" as const, content: "", timestamp: Date.now() }];

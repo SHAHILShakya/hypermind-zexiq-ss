@@ -210,36 +210,30 @@ serve(async (req) => {
   }
 
   try {
-    // ========== JWT Authentication ==========
+    // ========== Optional JWT Authentication ==========
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      console.error("Missing or invalid Authorization header");
-      return new Response(
-        JSON.stringify({ error: ERROR_MESSAGES[401] }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Create Supabase client and validate JWT
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getUser(token);
+    let userId = "anonymous";
     
-    if (claimsError || !claimsData?.user) {
-      console.error("JWT validation failed:", claimsError?.message);
-      return new Response(
-        JSON.stringify({ error: ERROR_MESSAGES[401] }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (authHeader?.startsWith("Bearer ")) {
+      try {
+        const supabaseClient = createClient(
+          Deno.env.get("SUPABASE_URL") ?? "",
+          Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+          { global: { headers: { Authorization: authHeader } } }
+        );
+
+        const token = authHeader.replace("Bearer ", "");
+        const { data: claimsData, error: claimsError } = await supabaseClient.auth.getUser(token);
+        
+        if (!claimsError && claimsData?.user) {
+          userId = claimsData.user.id;
+        }
+      } catch (e) {
+        console.log("Auth check failed, continuing as anonymous:", e);
+      }
     }
 
-    const userId = claimsData.user.id;
-    console.log("Authenticated user:", userId);
+    console.log("Chat user:", userId);
 
     // ========== Parse and validate input ==========
     let body: unknown;
