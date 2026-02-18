@@ -25,6 +25,7 @@ const MessageSchema = z.object({
 const RequestSchema = z.object({
   messages: z.array(MessageSchema).min(1).max(100),
   dynamicPrompt: z.string().max(10000).optional(),
+  selectedModel: z.string().max(100).optional(),
 });
 
 const BASE_SYSTEM_PROMPT = `# ZEX•IQ — INTELLIGENT ASSISTANT
@@ -94,12 +95,114 @@ interface AIProvider {
   supportsVision: boolean;
 }
 
-const AI_PROVIDERS: AIProvider[] = [
+// All available models keyed by client-side model ID
+interface ModelConfig {
+  name: string;
+  endpoint: string;
+  getApiKey: () => string | undefined;
+  model: string; // actual model name sent to API
+  supportsVision: boolean;
+}
+
+const MODEL_REGISTRY: Record<string, ModelConfig> = {
+  // ── Perplexity ──────────────────────────────────────────
+  "perplexity/sonar": {
+    name: "Perplexity Sonar",
+    endpoint: "https://api.perplexity.ai/chat/completions",
+    getApiKey: () => Deno.env.get("PERPLEXITY_API_KEY"),
+    model: "sonar",
+    supportsVision: false,
+  },
+  "perplexity/sonar-pro": {
+    name: "Perplexity Sonar Pro",
+    endpoint: "https://api.perplexity.ai/chat/completions",
+    getApiKey: () => Deno.env.get("PERPLEXITY_API_KEY"),
+    model: "sonar-pro",
+    supportsVision: false,
+  },
+  "perplexity/sonar-reasoning": {
+    name: "Perplexity Sonar Reasoning",
+    endpoint: "https://api.perplexity.ai/chat/completions",
+    getApiKey: () => Deno.env.get("PERPLEXITY_API_KEY"),
+    model: "sonar-reasoning",
+    supportsVision: false,
+  },
+  // ── Google Gemini (via Lovable AI Gateway) ───────────────
+  "lovable/gemini-3-flash-preview": {
+    name: "Gemini 3 Flash Preview",
+    endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
+    getApiKey: () => Deno.env.get("LOVABLE_API_KEY"),
+    model: "google/gemini-3-flash-preview",
+    supportsVision: true,
+  },
+  "lovable/gemini-2.5-flash": {
+    name: "Gemini 2.5 Flash",
+    endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
+    getApiKey: () => Deno.env.get("LOVABLE_API_KEY"),
+    model: "google/gemini-2.5-flash",
+    supportsVision: true,
+  },
+  "lovable/gemini-2.5-pro": {
+    name: "Gemini 2.5 Pro",
+    endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
+    getApiKey: () => Deno.env.get("LOVABLE_API_KEY"),
+    model: "google/gemini-2.5-pro",
+    supportsVision: true,
+  },
+  // ── OpenAI GPT (via Lovable AI Gateway) ─────────────────
+  "lovable/gpt-5-mini": {
+    name: "GPT-5 Mini",
+    endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
+    getApiKey: () => Deno.env.get("LOVABLE_API_KEY"),
+    model: "openai/gpt-5-mini",
+    supportsVision: true,
+  },
+  "lovable/gpt-5": {
+    name: "GPT-5",
+    endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
+    getApiKey: () => Deno.env.get("LOVABLE_API_KEY"),
+    model: "openai/gpt-5",
+    supportsVision: true,
+  },
+  // ── DeepSeek (via Groq for now, or direct) ──────────────
+  "deepseek/deepseek-chat": {
+    name: "DeepSeek Chat",
+    endpoint: "https://api.groq.com/openai/v1/chat/completions",
+    getApiKey: () => Deno.env.get("GROQ_API_KEY"),
+    model: "deepseek-r1-distill-llama-70b",
+    supportsVision: false,
+  },
+  "deepseek/deepseek-reasoner": {
+    name: "DeepSeek R1",
+    endpoint: "https://api.groq.com/openai/v1/chat/completions",
+    getApiKey: () => Deno.env.get("GROQ_API_KEY"),
+    model: "deepseek-r1-distill-llama-70b",
+    supportsVision: false,
+  },
+  // ── Groq ─────────────────────────────────────────────────
+  "groq/llama-3.3-70b-versatile": {
+    name: "LLaMA 3.3 70B",
+    endpoint: "https://api.groq.com/openai/v1/chat/completions",
+    getApiKey: () => Deno.env.get("GROQ_API_KEY"),
+    model: "llama-3.3-70b-versatile",
+    supportsVision: false,
+  },
+  "groq/llama-3.1-8b-instant": {
+    name: "LLaMA 3.1 8B Instant",
+    endpoint: "https://api.groq.com/openai/v1/chat/completions",
+    getApiKey: () => Deno.env.get("GROQ_API_KEY"),
+    model: "llama-3.1-8b-instant",
+    supportsVision: false,
+  },
+};
+
+// Fallback chain when primary model fails
+const FALLBACK_CHAIN: AIProvider[] = [
   {
     name: "Perplexity",
     endpoint: "https://api.perplexity.ai/chat/completions",
     getApiKey: () => Deno.env.get("PERPLEXITY_API_KEY"),
-    model: "sonar", // Fast search-grounded model
+    model: "sonar",
     supportsVision: false,
   },
   {
@@ -263,27 +366,49 @@ serve(async (req) => {
       );
     }
 
-    const { messages, dynamicPrompt } = parseResult.data;
+    const { messages, dynamicPrompt, selectedModel } = parseResult.data;
     
     // Combine base prompt with dynamic settings
     const fullSystemPrompt = dynamicPrompt 
       ? `${BASE_SYSTEM_PROMPT}\n\n${dynamicPrompt}` 
       : BASE_SYSTEM_PROMPT;
 
-    console.log("Processing chat request from user", userId, "with", messages.length, "messages");
+    console.log("Processing chat request from user", userId, "with", messages.length, "messages, model:", selectedModel ?? "default");
 
     // Check if request requires vision capabilities
     const requiresVision = hasImages(messages);
     console.log("Request requires vision:", requiresVision);
 
-    // ========== Try AI providers with fallback ==========
+    // ========== Route to selected model or fallback chain ==========
     let response: Response | null = null;
-    let lastError: string = "";
 
-    for (const provider of AI_PROVIDERS) {
+    if (selectedModel && MODEL_REGISTRY[selectedModel]) {
+      const cfg = MODEL_REGISTRY[selectedModel];
+      const provider: AIProvider = {
+        name: cfg.name,
+        endpoint: cfg.endpoint,
+        getApiKey: cfg.getApiKey,
+        model: cfg.model,
+        supportsVision: cfg.supportsVision,
+      };
+      console.log(`Using selected model: ${cfg.name} (${cfg.model})`);
       response = await tryProvider(provider, messages, fullSystemPrompt, requiresVision);
-      if (response) {
-        break;
+
+      // If selected model fails, fall through to fallback chain
+      if (!response) {
+        console.log(`Selected model failed, trying fallback chain...`);
+        for (const fallback of FALLBACK_CHAIN) {
+          // Skip if same as the one that just failed
+          if (fallback.endpoint === cfg.endpoint && fallback.model === cfg.model) continue;
+          response = await tryProvider(fallback, messages, fullSystemPrompt, requiresVision);
+          if (response) break;
+        }
+      }
+    } else {
+      // No model specified — try full fallback chain
+      for (const provider of FALLBACK_CHAIN) {
+        response = await tryProvider(provider, messages, fullSystemPrompt, requiresVision);
+        if (response) break;
       }
     }
 

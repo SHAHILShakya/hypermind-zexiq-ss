@@ -21,6 +21,7 @@ interface UseNexusChatDatabaseOptions {
   sessionId: string | null;
   onAddMessage: (sessionId: string, message: Omit<Message, "id" | "timestamp">) => Promise<{ id: string } | null>;
   onUpdateMessage: (sessionId: string, messageId: string, content: string) => void;
+  selectedModel?: string;
 }
 
 export function useNexusChatDatabase(
@@ -105,7 +106,11 @@ export function useNexusChatDatabase(
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ messages: apiMessages, dynamicPrompt }),
+        body: JSON.stringify({ 
+          messages: apiMessages, 
+          dynamicPrompt,
+          selectedModel: options.selectedModel,
+        }),
       });
 
       if (!resp.ok) {
@@ -240,7 +245,7 @@ export function useNexusChatDatabase(
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ messages: apiMessages, dynamicPrompt }),
+        body: JSON.stringify({ messages: apiMessages, dynamicPrompt, selectedModel: options.selectedModel }),
       });
       if (!resp.ok || !resp.body) throw new Error("Failed to regenerate");
 
@@ -370,7 +375,7 @@ export function useNexusChatDatabase(
       const resp = await fetch(CHAT_URL, { 
         method: "POST", 
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, 
-        body: JSON.stringify({ messages: apiMessages, dynamicPrompt }) 
+        body: JSON.stringify({ messages: apiMessages, dynamicPrompt, selectedModel: options.selectedModel }) 
       });
       if (!resp.ok || !resp.body) throw new Error("Failed");
       
