@@ -22,6 +22,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAISettings, MOOD_THEME_MAP } from "@/hooks/useAISettings";
 import { useSilenceAware } from "@/hooks/useSilenceAware";
+import { loadSelectedModel } from "@/components/ModelSelector";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -93,6 +94,7 @@ const Index = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState(() => loadSelectedModel());
 
   const {
     sessions,
@@ -185,12 +187,18 @@ const Index = () => {
     sessionId: activeSessionId,
     onAddMessage: handleAddMessage,
     onUpdateMessage: handleUpdateMessage,
+    selectedModel,
   });
 
-  const sendMessage = useCallback(async (content: string, image?: File, files?: UploadedFile[]) => {
+  const sendMessage = useCallback(async (content: string, image?: File, files?: UploadedFile[], model?: string) => {
     updateMoodFromText(content);
     recordActivity();
     
+    // Sync model if ChatInput changed it
+    if (model && model !== selectedModel) {
+      setSelectedModel(model as ReturnType<typeof loadSelectedModel>);
+    }
+
     const dynamicPrompt = buildDynamicPrompt(themeId);
     
     // Build file context for the message
@@ -208,7 +216,7 @@ const Index = () => {
     }
     
     await baseSendMessage(content + fileContext, image, dynamicPrompt);
-  }, [baseSendMessage, updateMoodFromText, recordActivity, buildDynamicPrompt, themeId]);
+  }, [baseSendMessage, updateMoodFromText, recordActivity, buildDynamicPrompt, themeId, selectedModel]);
 
   useEffect(() => {
     if (activeSession) {

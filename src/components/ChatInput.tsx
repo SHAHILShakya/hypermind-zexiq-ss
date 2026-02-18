@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, memo, forwardRef, useImperativeHandle, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Loader2, Image, X, Mic, MicOff, Paperclip, FileText, FileImage, File, Archive, Globe } from "lucide-react";
+import { Send, Loader2, X, Mic, MicOff, Paperclip, FileText, FileImage, File, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import type { UploadedFile } from "./FileUploadButton";
 import { VoiceSelectorCompact, type VoiceId } from "./VoiceSelectorCompact";
+import { ModelSelector, type ModelId, loadSelectedModel, saveSelectedModel } from "./ModelSelector";
 
 // Supported file types
 const FILE_TYPES = {
@@ -31,7 +32,7 @@ const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const MAX_FILES = 10;
 
 interface ChatInputProps {
-  onSend: (message: string, image?: File, files?: UploadedFile[]) => void;
+  onSend: (message: string, image?: File, files?: UploadedFile[], selectedModel?: string) => void;
   isLoading: boolean;
   disabled?: boolean;
   selectedVoice: VoiceId;
@@ -60,6 +61,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
   ({ onSend, isLoading, disabled, selectedVoice, onVoiceChange }, ref) => {
     const [input, setInput] = useState("");
     const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+    const [selectedModel, setSelectedModel] = useState<ModelId>(loadSelectedModel);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -81,11 +83,11 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
 
     const submitMessage = useCallback(() => {
       if ((input.trim() || uploadedFiles.length > 0) && !isLoading && !disabled) {
-        onSend(input.trim(), undefined, uploadedFiles.length > 0 ? uploadedFiles : undefined);
+        onSend(input.trim(), undefined, uploadedFiles.length > 0 ? uploadedFiles : undefined, selectedModel);
         setInput("");
         setUploadedFiles([]);
       }
-    }, [input, uploadedFiles, isLoading, disabled, onSend]);
+    }, [input, uploadedFiles, isLoading, disabled, onSend, selectedModel]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
       if (e.key === "Enter" && !e.shiftKey) {
@@ -278,7 +280,17 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, ChatInputProps>(
 
             {/* Bottom Row: Actions */}
             <div className="flex items-center justify-between px-2 pb-2">
-              <div className="flex items-center gap-0.5">
+              <div className="flex items-center gap-0.5 flex-wrap">
+                {/* Model Selector */}
+                <ModelSelector
+                  value={selectedModel}
+                  onChange={(m) => {
+                    setSelectedModel(m);
+                    saveSelectedModel(m);
+                  }}
+                  disabled={isLoading || disabled}
+                />
+
                 {/* File Upload */}
                 <Button
                   type="button"
