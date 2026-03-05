@@ -45,10 +45,6 @@ export function useNexusChatDatabase(
     }
 
     const token = await getAuthToken();
-    if (!token) {
-      toast.error("Please sign in to use chat");
-      return null;
-    }
 
     let imageBase64: string | undefined;
     if (image) {
@@ -104,7 +100,9 @@ export function useNexusChatDatabase(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          ...(token
+            ? { Authorization: `Bearer ${token}` }
+            : { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }),
         },
         body: JSON.stringify({ 
           messages: apiMessages, 
@@ -116,7 +114,7 @@ export function useNexusChatDatabase(
       if (!resp.ok) {
         const errorData = await resp.json().catch(() => ({}));
         const errorMessage = errorData.error || "Failed to get response";
-        if (resp.status === 401) throw new Error("Please sign in to continue");
+        if (resp.status === 401) throw new Error("Authentication error. Try refreshing the page.");
         if (resp.status === 429 || resp.status === 402 || resp.status === 503) {
           throw new Error(errorMessage);
         }
@@ -205,10 +203,6 @@ export function useNexusChatDatabase(
     if (!sessionId || localMessages.length < 2) return;
     
     const token = await getAuthToken();
-    if (!token) { 
-      toast.error("Please sign in"); 
-      return; 
-    }
 
     // Find last user message
     let lastUserIndex = -1;
@@ -244,7 +238,12 @@ export function useNexusChatDatabase(
     try {
       const resp = await fetch(CHAT_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { 
+          "Content-Type": "application/json", 
+          ...(token
+            ? { Authorization: `Bearer ${token}` }
+            : { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }),
+        },
         body: JSON.stringify({ messages: apiMessages, dynamicPrompt, selectedModel: options.selectedModel }),
       });
       if (!resp.ok || !resp.body) throw new Error("Failed to regenerate");
@@ -335,10 +334,6 @@ export function useNexusChatDatabase(
     if (!sessionId) return;
     
     const token = await getAuthToken();
-    if (!token) { 
-      toast.error("Please sign in"); 
-      return; 
-    }
     
     const messageIndex = localMessages.findIndex(m => m.id === messageId);
     if (messageIndex === -1) return;
@@ -374,7 +369,12 @@ export function useNexusChatDatabase(
     try {
       const resp = await fetch(CHAT_URL, { 
         method: "POST", 
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, 
+        headers: { 
+          "Content-Type": "application/json", 
+          ...(token
+            ? { Authorization: `Bearer ${token}` }
+            : { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }),
+        }, 
         body: JSON.stringify({ messages: apiMessages, dynamicPrompt, selectedModel: options.selectedModel }) 
       });
       if (!resp.ok || !resp.body) throw new Error("Failed");
