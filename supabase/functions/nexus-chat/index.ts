@@ -127,37 +127,37 @@ const MODEL_REGISTRY: Record<string, ModelConfig> = {
     model: "sonar-reasoning",
     supportsVision: false,
   },
-  // ── Google Gemini (via Lovable AI Gateway) ───────────────
-  "lovable/gemini-3-flash-preview": {
-    name: "Gemini 3 Flash Preview",
-    endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
-    getApiKey: () => Deno.env.get("LOVABLE_API_KEY"),
-    model: "google/gemini-3-flash-preview",
-    supportsVision: true,
-  },
-  "lovable/gemini-2.5-flash": {
+  // ── Google Gemini (via Google AI directly) ───────────────
+  "google/gemini-2.5-flash": {
     name: "Gemini 2.5 Flash",
-    endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
-    getApiKey: () => Deno.env.get("LOVABLE_API_KEY"),
-    model: "google/gemini-2.5-flash",
+    endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    getApiKey: () => Deno.env.get("GOOGLE_AI_API_KEY"),
+    model: "gemini-2.5-flash-preview-05-20",
     supportsVision: true,
   },
-  "lovable/gemini-2.5-pro": {
+  "google/gemini-2.5-pro": {
     name: "Gemini 2.5 Pro",
-    endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
-    getApiKey: () => Deno.env.get("LOVABLE_API_KEY"),
-    model: "google/gemini-2.5-pro",
+    endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    getApiKey: () => Deno.env.get("GOOGLE_AI_API_KEY"),
+    model: "gemini-2.5-pro-preview-05-06",
+    supportsVision: true,
+  },
+  "google/gemini-2.0-flash": {
+    name: "Gemini 2.0 Flash",
+    endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    getApiKey: () => Deno.env.get("GOOGLE_AI_API_KEY"),
+    model: "gemini-2.0-flash",
     supportsVision: true,
   },
   // ── OpenAI GPT (via Lovable AI Gateway) ─────────────────
-  "lovable/gpt-5-mini": {
+  "openai/gpt-5-mini": {
     name: "GPT-5 Mini",
     endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
     getApiKey: () => Deno.env.get("LOVABLE_API_KEY"),
     model: "openai/gpt-5-mini",
     supportsVision: true,
   },
-  "lovable/gpt-5": {
+  "openai/gpt-5": {
     name: "GPT-5",
     endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
     getApiKey: () => Deno.env.get("LOVABLE_API_KEY"),
@@ -199,6 +199,13 @@ const MODEL_REGISTRY: Record<string, ModelConfig> = {
 // Fallback chain when primary model fails
 const FALLBACK_CHAIN: AIProvider[] = [
   {
+    name: "Google Gemini",
+    endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    getApiKey: () => Deno.env.get("GOOGLE_AI_API_KEY"),
+    model: "gemini-2.0-flash",
+    supportsVision: true,
+  },
+  {
     name: "Perplexity",
     endpoint: "https://api.perplexity.ai/chat/completions",
     getApiKey: () => Deno.env.get("PERPLEXITY_API_KEY"),
@@ -211,13 +218,6 @@ const FALLBACK_CHAIN: AIProvider[] = [
     getApiKey: () => Deno.env.get("GROQ_API_KEY"),
     model: "llama-3.3-70b-versatile",
     supportsVision: false,
-  },
-  {
-    name: "Lovable AI (Fallback)",
-    endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
-    getApiKey: () => Deno.env.get("LOVABLE_API_KEY"),
-    model: "google/gemini-3-flash-preview",
-    supportsVision: true,
   },
 ];
 
