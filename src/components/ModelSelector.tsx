@@ -14,11 +14,11 @@ export type ModelId =
   | "perplexity/sonar-reasoning"
   | "groq/llama-3.3-70b-versatile"
   | "groq/llama-3.1-8b-instant"
-  | "lovable/gemini-2.5-flash"
-  | "lovable/gemini-2.5-pro"
-  | "lovable/gemini-3-flash-preview"
-  | "lovable/gpt-5"
-  | "lovable/gpt-5-mini"
+  | "google/gemini-2.5-flash"
+  | "google/gemini-2.5-pro"
+  | "google/gemini-2.0-flash"
+  | "openai/gpt-5"
+  | "openai/gpt-5-mini"
   | "deepseek/deepseek-chat"
   | "deepseek/deepseek-reasoner";
 
@@ -67,17 +67,17 @@ export const AI_MODELS: AIModel[] = [
   },
   // Google Gemini
   {
-    id: "lovable/gemini-3-flash-preview",
-    name: "Gemini Flash",
+    id: "google/gemini-2.0-flash",
+    name: "Gemini 2.0 Flash",
     provider: "Google",
-    description: "Fast, balanced, next-gen Google model",
+    description: "Fast, efficient multimodal model",
     badge: "Fast",
     badgeColor: "bg-green-500/20 text-green-400",
     icon: "google",
     supportsVision: true,
   },
   {
-    id: "lovable/gemini-2.5-flash",
+    id: "google/gemini-2.5-flash",
     name: "Gemini 2.5 Flash",
     provider: "Google",
     description: "Speed + multimodal reasoning",
@@ -87,7 +87,7 @@ export const AI_MODELS: AIModel[] = [
     supportsVision: true,
   },
   {
-    id: "lovable/gemini-2.5-pro",
+    id: "google/gemini-2.5-pro",
     name: "Gemini 2.5 Pro",
     provider: "Google",
     description: "Top-tier vision + complex reasoning",
@@ -98,7 +98,7 @@ export const AI_MODELS: AIModel[] = [
   },
   // OpenAI
   {
-    id: "lovable/gpt-5-mini",
+    id: "openai/gpt-5-mini",
     name: "GPT-5 Mini",
     provider: "OpenAI",
     description: "Efficient, smart reasoning at lower cost",
@@ -108,7 +108,7 @@ export const AI_MODELS: AIModel[] = [
     supportsVision: true,
   },
   {
-    id: "lovable/gpt-5",
+    id: "openai/gpt-5",
     name: "GPT-5",
     provider: "OpenAI",
     description: "Powerful all-rounder with top accuracy",
@@ -161,7 +161,7 @@ export const AI_MODELS: AIModel[] = [
   },
 ];
 
-export const DEFAULT_MODEL: ModelId = "perplexity/sonar";
+export const DEFAULT_MODEL: ModelId = "google/gemini-2.0-flash";
 
 const MODEL_STORAGE_KEY = "zexiq-selected-model";
 
