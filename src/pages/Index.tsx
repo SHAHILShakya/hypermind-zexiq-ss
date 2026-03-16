@@ -495,7 +495,7 @@ const Index = () => {
               />
             </div>
             
-            <SilenceMessage message={silenceMessage} onDismiss={dismissSilenceMessage} />
+            
           </motion.div>
     </div>
   );
