@@ -203,14 +203,6 @@ export const AISettingsPanel = memo(({
             <VoiceSelector value={selectedVoice} onChange={onVoiceChange} />
           </div>
 
-          {/* Silence Aware */}
-          <SettingRow
-            icon={Volume2}
-            title="Silence Aware"
-            description="AI understands intentional pauses and responds thoughtfully"
-            enabled={settings.silenceAwareEnabled}
-            onToggle={onToggleSilenceAware}
-          />
 
           {/* Time Perspective */}
           <SettingRow

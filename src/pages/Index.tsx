@@ -9,7 +9,7 @@ import { SessionSidebar } from "@/components/SessionSidebar";
 import { ThemeSelector } from "@/components/ThemeSelector";
 import { AISettingsPanel } from "@/components/AISettingsPanel";
 import { MoodIndicator } from "@/components/MoodIndicator";
-import { SilenceMessage } from "@/components/SilenceMessage";
+
 import { TypingIndicator } from "@/components/TypingIndicator";
 
 import { ConversationSearch } from "@/components/ConversationSearch";
@@ -21,7 +21,7 @@ import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { useTheme } from "@/hooks/useTheme";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAISettings, MOOD_THEME_MAP } from "@/hooks/useAISettings";
-import { useSilenceAware } from "@/hooks/useSilenceAware";
+
 import { loadSelectedModel } from "@/components/ModelSelector";
 import { Button } from "@/components/ui/button";
 import {
@@ -140,7 +140,7 @@ const Index = () => {
     }
   }, [aiSettings.moodSyncEnabled, aiSettings.currentMood, themeId, setTheme]);
 
-  const { silenceMessage, recordActivity, dismissSilenceMessage } = useSilenceAware(aiSettings.silenceAwareEnabled);
+  
 
   // Convert session messages to the format expected by useNexusChatDatabase
   const sessionMessages: Message[] = useMemo(() => 
@@ -192,7 +192,7 @@ const Index = () => {
 
   const sendMessage = useCallback(async (content: string, image?: File, files?: UploadedFile[], model?: string) => {
     updateMoodFromText(content);
-    recordActivity();
+    
     
     // Sync model if ChatInput changed it
     if (model && model !== selectedModel) {
@@ -216,7 +216,7 @@ const Index = () => {
     }
     
     await baseSendMessage(content + fileContext, image, dynamicPrompt);
-  }, [baseSendMessage, updateMoodFromText, recordActivity, buildDynamicPrompt, themeId, selectedModel]);
+  }, [baseSendMessage, updateMoodFromText, buildDynamicPrompt, themeId, selectedModel]);
 
   useEffect(() => {
     if (activeSession) {
@@ -495,7 +495,7 @@ const Index = () => {
               />
             </div>
             
-            <SilenceMessage message={silenceMessage} onDismiss={dismissSilenceMessage} />
+            
           </motion.div>
     </div>
   );
