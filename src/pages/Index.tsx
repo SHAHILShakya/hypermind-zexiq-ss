@@ -216,7 +216,7 @@ const Index = () => {
     }
     
     await baseSendMessage(content + fileContext, image, dynamicPrompt);
-  }, [baseSendMessage, updateMoodFromText, recordActivity, buildDynamicPrompt, themeId, selectedModel]);
+  }, [baseSendMessage, updateMoodFromText, buildDynamicPrompt, themeId, selectedModel]);
 
   useEffect(() => {
     if (activeSession) {
