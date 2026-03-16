@@ -192,7 +192,7 @@ const Index = () => {
 
   const sendMessage = useCallback(async (content: string, image?: File, files?: UploadedFile[], model?: string) => {
     updateMoodFromText(content);
-    recordActivity();
+    
     
     // Sync model if ChatInput changed it
     if (model && model !== selectedModel) {
