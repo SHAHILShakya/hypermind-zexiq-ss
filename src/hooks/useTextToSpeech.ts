@@ -41,8 +41,20 @@ export function useTextToSpeech() {
 
       if (!response.ok) throw new Error("Failed to generate speech");
 
-      const audioBlob = await response.blob();
-      const audio = new Audio(URL.createObjectURL(audioBlob));
+      const contentType = response.headers.get("Content-Type") || "";
+      const audioBuffer = await response.arrayBuffer();
+      
+      let playableBlob: Blob;
+      if (contentType.includes("pcm")) {
+        // Wrap raw PCM in a WAV header so the browser can play it
+        // Gemini TTS returns 24kHz 16-bit mono PCM
+        const wavBuffer = pcmToWav(audioBuffer, 24000, 1, 16);
+        playableBlob = new Blob([wavBuffer], { type: "audio/wav" });
+      } else {
+        playableBlob = new Blob([audioBuffer], { type: contentType || "audio/mpeg" });
+      }
+
+      const audio = new Audio(URL.createObjectURL(playableBlob));
       audioRef.current = audio;
       audio.onended = () => { setIsSpeaking(false); setSpeakingMessageId(null); audioRef.current = null; };
       audio.onerror = () => { setIsSpeaking(false); setSpeakingMessageId(null); audioRef.current = null; toast.error("Failed to play audio"); };
