@@ -21,7 +21,7 @@ import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { useTheme } from "@/hooks/useTheme";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useAISettings, MOOD_THEME_MAP } from "@/hooks/useAISettings";
-import { useSilenceAware } from "@/hooks/useSilenceAware";
+
 import { loadSelectedModel } from "@/components/ModelSelector";
 import { Button } from "@/components/ui/button";
 import {
