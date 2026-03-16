@@ -4,6 +4,36 @@ import { supabase } from "@/integrations/supabase/client";
 
 const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`;
 
+/** Wrap raw PCM data in a WAV header for browser playback */
+function pcmToWav(pcmData: ArrayBuffer, sampleRate: number, channels: number, bitsPerSample: number): ArrayBuffer {
+  const byteRate = sampleRate * channels * (bitsPerSample / 8);
+  const blockAlign = channels * (bitsPerSample / 8);
+  const dataSize = pcmData.byteLength;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  };
+
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, channels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitsPerSample, true);
+  writeString(36, "data");
+  view.setUint32(40, dataSize, true);
+
+  new Uint8Array(buffer, 44).set(new Uint8Array(pcmData));
+  return buffer;
+}
+
 export type VoiceId = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer" | "coral" | "sage" | "ash" | "ballad" | "verse" | "juniper";
 
 export function useTextToSpeech() {
@@ -41,8 +71,20 @@ export function useTextToSpeech() {
 
       if (!response.ok) throw new Error("Failed to generate speech");
 
-      const audioBlob = await response.blob();
-      const audio = new Audio(URL.createObjectURL(audioBlob));
+      const contentType = response.headers.get("Content-Type") || "";
+      const audioBuffer = await response.arrayBuffer();
+      
+      let playableBlob: Blob;
+      if (contentType.includes("pcm")) {
+        // Wrap raw PCM in a WAV header so the browser can play it
+        // Gemini TTS returns 24kHz 16-bit mono PCM
+        const wavBuffer = pcmToWav(audioBuffer, 24000, 1, 16);
+        playableBlob = new Blob([wavBuffer], { type: "audio/wav" });
+      } else {
+        playableBlob = new Blob([audioBuffer], { type: contentType || "audio/mpeg" });
+      }
+
+      const audio = new Audio(URL.createObjectURL(playableBlob));
       audioRef.current = audio;
       audio.onended = () => { setIsSpeaking(false); setSpeakingMessageId(null); audioRef.current = null; };
       audio.onerror = () => { setIsSpeaking(false); setSpeakingMessageId(null); audioRef.current = null; toast.error("Failed to play audio"); };
