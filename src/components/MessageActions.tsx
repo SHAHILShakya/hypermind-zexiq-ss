@@ -223,65 +223,6 @@ export const MessageActions = memo(({
                 Share
               </TooltipContent>
             </Tooltip>
-
-            {/* Like button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleLike}
-                  className={`h-7 w-7 hover:bg-muted/50 transition-colors ${
-                    liked === true 
-                      ? "text-green-500" 
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <ThumbsUp className="w-3.5 h-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                Good response
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Dislike button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleDislike}
-                  className={`h-7 w-7 hover:bg-muted/50 transition-colors ${
-                    liked === false 
-                      ? "text-red-500" 
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <ThumbsDown className="w-3.5 h-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                Bad response
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Share button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleShare}
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                Share
-              </TooltipContent>
-            </Tooltip>
           </>
         )}
       </div>
