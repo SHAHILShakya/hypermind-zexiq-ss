@@ -18,16 +18,24 @@ export function useTextToSpeech() {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     if (speakingMessageId === messageId) { setIsSpeaking(false); setSpeakingMessageId(null); return; }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) { toast.error("Please sign in to use voice"); return; }
-
     setIsSpeaking(true);
     setSpeakingMessageId(messageId);
 
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      
+      // Use auth token if available, otherwise use anon key
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      } else {
+        headers["apikey"] = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        headers["Authorization"] = `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`;
+      }
+
       const response = await fetch(TTS_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        headers,
         body: JSON.stringify({ text, voice: voiceOverride || selectedVoice }),
       });
 
