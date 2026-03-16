@@ -140,7 +140,7 @@ const Index = () => {
     }
   }, [aiSettings.moodSyncEnabled, aiSettings.currentMood, themeId, setTheme]);
 
-  const { silenceMessage, recordActivity, dismissSilenceMessage } = useSilenceAware(aiSettings.silenceAwareEnabled);
+  
 
   // Convert session messages to the format expected by useNexusChatDatabase
   const sessionMessages: Message[] = useMemo(() => 
