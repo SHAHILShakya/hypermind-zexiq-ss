@@ -285,8 +285,9 @@ async function tryProvider(
           ...processedMessages,
         ],
         stream: true,
-        temperature: 0.7,
-        max_tokens: 4096,
+        temperature: 0.85,
+        top_p: 0.92,
+        max_tokens: 8192,
       }),
     });
 

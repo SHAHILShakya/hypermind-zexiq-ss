@@ -106,7 +106,7 @@ export const ChatMessage = memo(({
       </div>
 
       {/* Message bubble */}
-      <div className="flex-1 max-w-[80%]">
+      <div className={`flex-1 ${isUser ? "max-w-[80%]" : "max-w-full"}`}>
         <div
           className={`
             rounded-2xl px-5 py-3
