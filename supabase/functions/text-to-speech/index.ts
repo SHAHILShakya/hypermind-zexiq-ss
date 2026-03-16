@@ -1,149 +1,122 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Expanded voice options (12 voices)
 const VALID_VOICES = [
   "alloy", "echo", "fable", "onyx", "nova", "shimmer",
   "coral", "sage", "ash", "ballad", "verse", "juniper"
 ] as const;
 
-// Input validation schema
-const TTSRequestSchema = z.object({
-  text: z.string().min(1, "Text is required").max(4096, "Text too long"),
-  voice: z.enum(VALID_VOICES).optional().default("alloy"),
-});
-
-// User-friendly error messages
-const ERROR_MESSAGES: Record<number, string> = {
-  400: "Invalid request format.",
-  401: "Authentication required. Please sign in.",
-  402: "Service quota reached.",
-  429: "Service is busy. Please try again.",
-  500: "Speech generation unavailable.",
+// Map our voice IDs to Google TTS voice names
+const GOOGLE_VOICE_MAP: Record<string, { name: string; ssmlGender: string }> = {
+  alloy:   { name: "en-US-Studio-Q", ssmlGender: "MALE" },
+  echo:    { name: "en-US-Studio-M", ssmlGender: "MALE" },
+  fable:   { name: "en-GB-Studio-B", ssmlGender: "MALE" },
+  onyx:    { name: "en-US-Studio-D", ssmlGender: "MALE" },
+  nova:    { name: "en-US-Studio-O", ssmlGender: "FEMALE" },
+  shimmer: { name: "en-US-Studio-F", ssmlGender: "FEMALE" },
+  coral:   { name: "en-US-Neural2-F", ssmlGender: "FEMALE" },
+  sage:    { name: "en-US-Neural2-A", ssmlGender: "MALE" },
+  ash:     { name: "en-US-Neural2-D", ssmlGender: "MALE" },
+  ballad:  { name: "en-US-Neural2-E", ssmlGender: "FEMALE" },
+  verse:   { name: "en-US-Neural2-C", ssmlGender: "FEMALE" },
+  juniper: { name: "en-US-Neural2-G", ssmlGender: "FEMALE" },
 };
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // ========== Optional Authentication ==========
-    const authHeader = req.headers.get("Authorization");
-    let userId = "anonymous";
-
-    if (authHeader?.startsWith("Bearer ")) {
-      try {
-        const supabaseClient = createClient(
-          Deno.env.get("SUPABASE_URL") ?? "",
-          Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-          { global: { headers: { Authorization: authHeader } } }
-        );
-        const token = authHeader.replace("Bearer ", "");
-        const { data: claimsData, error: claimsError } = await supabaseClient.auth.getUser(token);
-        if (!claimsError && claimsData?.user) {
-          userId = claimsData.user.id;
-        }
-      } catch (e) {
-        console.log("Auth check failed, continuing as anonymous:", e);
-      }
-    }
-
-    console.log("TTS user:", userId);
-
-    // ========== Parse and validate input ==========
-    let body: unknown;
+    // ========== Parse input ==========
+    let body: { text?: string; voice?: string };
     try {
       body = await req.json();
     } catch {
       return new Response(
-        JSON.stringify({ error: ERROR_MESSAGES[400] }),
+        JSON.stringify({ error: "Invalid request format." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Validate request
-    const parseResult = TTSRequestSchema.safeParse(body);
-    if (!parseResult.success) {
-      console.error("TTS validation error:", parseResult.error.issues);
+    const text = body.text || "";
+    const voice = body.voice || "nova";
+
+    if (!text || text.length > 5000) {
       return new Response(
-        JSON.stringify({ error: ERROR_MESSAGES[400] }),
+        JSON.stringify({ error: "Text is required and must be under 5000 characters." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const { text, voice } = parseResult.data;
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY not configured");
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
+    if (!GOOGLE_API_KEY) {
+      console.error("GOOGLE_AI_API_KEY not configured");
       return new Response(
-        JSON.stringify({ error: ERROR_MESSAGES[500] }),
+        JSON.stringify({ error: "Speech service unavailable." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("TTS request from user", userId, ":", { textLength: text.length, voice });
+    const googleVoice = GOOGLE_VOICE_MAP[voice] || GOOGLE_VOICE_MAP["nova"];
 
-    const response = await fetch("https://api.openai.com/v1/audio/speech", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "tts-1",
-        input: text,
-        voice: voice,
-        response_format: "mp3",
-      }),
-    });
+    console.log("TTS request:", { textLength: text.length, voice, googleVoice: googleVoice.name });
+
+    // Use Google Cloud Text-to-Speech API
+    const response = await fetch(
+      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          input: { text },
+          voice: {
+            languageCode: googleVoice.name.startsWith("en-GB") ? "en-GB" : "en-US",
+            name: googleVoice.name,
+            ssmlGender: googleVoice.ssmlGender,
+          },
+          audioConfig: {
+            audioEncoding: "MP3",
+            speakingRate: 1.0,
+            pitch: 0,
+          },
+        }),
+      }
+    );
 
     if (!response.ok) {
-      // Log full error server-side
       const errorText = await response.text();
-      console.error("TTS API error:", {
-        status: response.status,
-        error: errorText,
-        userId,
-        timestamp: new Date().toISOString(),
-      });
-      
-      // Return generic error
-      const status = response.status as keyof typeof ERROR_MESSAGES;
+      console.error("Google TTS error:", response.status, errorText);
       return new Response(
-        JSON.stringify({ error: ERROR_MESSAGES[status] || ERROR_MESSAGES[500] }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "Speech generation failed. Please try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Return audio as binary
-    const audioBuffer = await response.arrayBuffer();
-    
-    return new Response(audioBuffer, {
+    const data = await response.json();
+    const audioContent = data.audioContent; // base64 encoded
+
+    // Decode base64 to binary
+    const binaryString = atob(audioContent);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    return new Response(bytes.buffer, {
       headers: {
         ...corsHeaders,
         "Content-Type": "audio/mpeg",
       },
     });
   } catch (error) {
-    // Log full error server-side
-    console.error("TTS error details:", {
-      error,
-      stack: error instanceof Error ? error.stack : undefined,
-      timestamp: new Date().toISOString(),
-    });
-    
-    // Return generic error
+    console.error("TTS error:", error);
     return new Response(
-      JSON.stringify({ error: ERROR_MESSAGES[500] }),
+      JSON.stringify({ error: "Speech generation unavailable." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
