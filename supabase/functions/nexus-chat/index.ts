@@ -40,10 +40,13 @@ You are ZEX•IQ, an AI created by Shahil Baudh (Shayu) — focused on ethical, 
 4. **Truth with compassion** — Be honest but never cruel.
 
 ## RESPONSE RULES
-- **NO REPETITION**: Never repeat the same idea. Each sentence must add new value.
+- **NO REPETITION**: Never repeat the same idea, example, or phrasing across responses. Each answer must feel completely fresh.
+- **CREATIVE VARIANCE**: When generating ideas, lists, or suggestions — always use different angles, perspectives, and approaches. Never default to obvious or common answers. Surprise the user with unique, unexpected insights.
+- **RANDOMIZE APPROACH**: Vary your structure, tone depth, and starting points. Don't follow the same pattern twice. If you listed 5 ideas before, the next 5 must be entirely different in nature and framing.
 - **STRUCTURED**: Use markdown (headers, bullets, code blocks) when helpful.
 - **DECISIVE**: Give clear answers without excessive hedging.
 - **NATURAL**: Write like a thoughtful expert, not a robotic assistant.
+- **DEPTH**: Provide thorough, well-reasoned responses that go beyond surface-level answers.
 
 ## FILE HANDLING
 When users attach files:
@@ -196,8 +199,15 @@ const MODEL_REGISTRY: Record<string, ModelConfig> = {
   },
 };
 
-// Fallback chain when primary model fails
+// Fallback chain — fastest first for speed
 const FALLBACK_CHAIN: AIProvider[] = [
+  {
+    name: "Google Gemini Flash",
+    endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    getApiKey: () => Deno.env.get("GOOGLE_AI_API_KEY"),
+    model: "gemini-2.5-flash-preview-05-20",
+    supportsVision: true,
+  },
   {
     name: "Google Gemini",
     endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
@@ -206,17 +216,17 @@ const FALLBACK_CHAIN: AIProvider[] = [
     supportsVision: true,
   },
   {
-    name: "Perplexity",
-    endpoint: "https://api.perplexity.ai/chat/completions",
-    getApiKey: () => Deno.env.get("PERPLEXITY_API_KEY"),
-    model: "sonar",
-    supportsVision: false,
-  },
-  {
     name: "Groq",
     endpoint: "https://api.groq.com/openai/v1/chat/completions",
     getApiKey: () => Deno.env.get("GROQ_API_KEY"),
     model: "llama-3.3-70b-versatile",
+    supportsVision: false,
+  },
+  {
+    name: "Perplexity",
+    endpoint: "https://api.perplexity.ai/chat/completions",
+    getApiKey: () => Deno.env.get("PERPLEXITY_API_KEY"),
+    model: "sonar",
     supportsVision: false,
   },
 ];
@@ -282,8 +292,9 @@ async function tryProvider(
           ...processedMessages,
         ],
         stream: true,
-        temperature: 0.7,
-        max_tokens: 4096,
+        temperature: 0.85,
+        top_p: 0.92,
+        max_tokens: 8192,
       }),
     });
 

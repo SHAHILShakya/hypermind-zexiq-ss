@@ -420,7 +420,7 @@ const Index = () => {
               ref={scrollAreaRef}
               className="flex-1 overflow-y-auto overscroll-contain"
             >
-              <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+              <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 w-full">
                 {messages.length === 0 && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
