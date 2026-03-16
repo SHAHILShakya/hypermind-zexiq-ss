@@ -199,8 +199,15 @@ const MODEL_REGISTRY: Record<string, ModelConfig> = {
   },
 };
 
-// Fallback chain when primary model fails
+// Fallback chain — fastest first for speed
 const FALLBACK_CHAIN: AIProvider[] = [
+  {
+    name: "Google Gemini Flash",
+    endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    getApiKey: () => Deno.env.get("GOOGLE_AI_API_KEY"),
+    model: "gemini-2.5-flash-preview-05-20",
+    supportsVision: true,
+  },
   {
     name: "Google Gemini",
     endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
@@ -209,17 +216,17 @@ const FALLBACK_CHAIN: AIProvider[] = [
     supportsVision: true,
   },
   {
-    name: "Perplexity",
-    endpoint: "https://api.perplexity.ai/chat/completions",
-    getApiKey: () => Deno.env.get("PERPLEXITY_API_KEY"),
-    model: "sonar",
-    supportsVision: false,
-  },
-  {
     name: "Groq",
     endpoint: "https://api.groq.com/openai/v1/chat/completions",
     getApiKey: () => Deno.env.get("GROQ_API_KEY"),
     model: "llama-3.3-70b-versatile",
+    supportsVision: false,
+  },
+  {
+    name: "Perplexity",
+    endpoint: "https://api.perplexity.ai/chat/completions",
+    getApiKey: () => Deno.env.get("PERPLEXITY_API_KEY"),
+    model: "sonar",
     supportsVision: false,
   },
 ];
