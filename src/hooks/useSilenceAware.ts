@@ -26,8 +26,8 @@ export function useSilenceAware(enabled: boolean = true) {
   });
   
   const lastActivityRef = useRef<number>(Date.now());
-  const pauseTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const messageTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const messageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasShownMessageRef = useRef<boolean>(false);
 
   // Record user activity (typing, clicking, etc.)
