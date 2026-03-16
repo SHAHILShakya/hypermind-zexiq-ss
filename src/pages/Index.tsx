@@ -9,7 +9,7 @@ import { SessionSidebar } from "@/components/SessionSidebar";
 import { ThemeSelector } from "@/components/ThemeSelector";
 import { AISettingsPanel } from "@/components/AISettingsPanel";
 import { MoodIndicator } from "@/components/MoodIndicator";
-import { SilenceMessage } from "@/components/SilenceMessage";
+
 import { TypingIndicator } from "@/components/TypingIndicator";
 
 import { ConversationSearch } from "@/components/ConversationSearch";
