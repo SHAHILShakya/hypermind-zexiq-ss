@@ -389,6 +389,34 @@ serve(async (req) => {
     }
 
     const { messages, dynamicPrompt, selectedModel } = parseResult.data;
+
+    // ========== Server-side payload/file content validation ==========
+    // Enforce limits server-side so client-side checks cannot be bypassed.
+    const MAX_TOTAL_PAYLOAD = 200_000; // characters across all messages
+    const MAX_CONTENT_PARTS = 20;      // per-message content parts (text + files/images)
+
+    let totalPayloadSize = 0;
+    for (const msg of messages) {
+      if (Array.isArray(msg.content)) {
+        if (msg.content.length > MAX_CONTENT_PARTS) {
+          return new Response(
+            JSON.stringify({ error: ERROR_MESSAGES[400] }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        totalPayloadSize += JSON.stringify(msg.content).length;
+      } else {
+        totalPayloadSize += msg.content.length;
+      }
+    }
+
+    if (totalPayloadSize > MAX_TOTAL_PAYLOAD) {
+      console.error("Payload too large:", totalPayloadSize);
+      return new Response(
+        JSON.stringify({ error: ERROR_MESSAGES[400] }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     
     // Combine base prompt with dynamic settings
     const fullSystemPrompt = dynamicPrompt 
